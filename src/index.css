@@ -339,6 +339,8 @@ body {
   -ms-overflow-style: none;
   flex: 1;
   align-items: stretch;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 .timers-grid::-webkit-scrollbar {
@@ -358,6 +360,8 @@ body {
   gap: clamp(4px, 1vh, 6px);
   min-width: 200px;
   flex: 0 0 auto;
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
 }
 
 .timer-card:hover {
@@ -367,6 +371,24 @@ body {
 .timer-card.selected {
   border-color: var(--accent);
   background: rgba(99, 102, 241, 0.08);
+}
+
+.timer-card.finished {
+  animation: glow-pulse 1.5s ease-in-out 2;
+  border-color: #10b981;
+}
+
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 5px rgba(16, 185, 129, 0.5),
+                0 0 10px rgba(16, 185, 129, 0.3),
+                0 0 15px rgba(16, 185, 129, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.8),
+                0 0 30px rgba(16, 185, 129, 0.6),
+                0 0 40px rgba(16, 185, 129, 0.4);
+  }
 }
 
 .timer-name-bar {

@@ -1,6 +1,19 @@
 import React, { useEffect, useRef } from 'react';
 import { getSoundForTimer, playSound } from '../utils/soundManager';
 
+// Color palette for timer names
+const TIMER_COLORS = [
+  '#6366f1', // Indigo
+  '#ec4899', // Pink
+  '#14b8a6', // Teal
+  '#f59e0b', // Amber
+  '#8b5cf6', // Purple
+  '#10b981', // Emerald
+  '#f43f5e', // Rose
+  '#3b82f6', // Blue
+  '#eab308', // Yellow
+];
+
 const TimerCard = ({
   id,
   name,
@@ -13,9 +26,21 @@ const TimerCard = ({
   onUpdate,
   onRemove,
   onSelect,
-  timerPosition
+  timerPosition,
+  hasFinished
 }) => {
   const intervalRef = useRef(null);
+  const timerColor = TIMER_COLORS[timerPosition % TIMER_COLORS.length];
+
+  // Clear finished state after animation
+  useEffect(() => {
+    if (hasFinished) {
+      const timeout = setTimeout(() => {
+        onUpdate(id, { hasFinished: false });
+      }, 3000); // Clear after 3 seconds
+      return () => clearTimeout(timeout);
+    }
+  }, [hasFinished, id, onUpdate]);
 
   // Countdown logic
   useEffect(() => {
@@ -24,7 +49,7 @@ const TimerCard = ({
         // Check if timer has reached zero
         if (minutes === 0 && seconds === 0) {
           clearInterval(intervalRef.current);
-          onUpdate(id, { isRunning: false });
+          onUpdate(id, { isRunning: false, hasFinished: true });
           // Play sound on completion
           const soundPath = getSoundForTimer(timerPosition);
           playSound(soundPath);
@@ -121,7 +146,7 @@ const TimerCard = ({
 
   return (
     <div
-      className={`timer-card ${isSelected ? 'selected' : ''}`}
+      className={`timer-card ${isSelected ? 'selected' : ''} ${hasFinished ? 'finished' : ''}`}
       onClick={handleCardClick}
     >
       <div className="timer-name-bar">
@@ -133,6 +158,7 @@ const TimerCard = ({
           onClick={(e) => e.stopPropagation()}
           placeholder="Timer name"
           maxLength={20}
+          style={{ color: timerColor, borderColor: `${timerColor}40` }}
         />
         <button
           className="delete-timer-btn"

@@ -30,7 +30,7 @@ const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin }) 
           appWindowRef.current = resolved ?? null;
           return appWindowRef.current;
         } catch (error) {
-          console.warn('Unable to obtain current Tauri window instance:', error);
+          // Silent fail
         }
       }
 
@@ -70,7 +70,7 @@ const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin }) 
           appWindowRef.current = windowRef;
         }
       } catch (error) {
-        console.warn('Unable to get window reference:', error);
+        // Silent fail
       }
     }
 
@@ -81,8 +81,6 @@ const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin }) 
             await window.__TAURI__.core.invoke('minimize_window');
           } else if (windowRef) {
             await windowRef.minimize();
-          } else {
-            console.error('Window reference not available for minimize action');
           }
           break;
         case 'close':
@@ -98,12 +96,12 @@ const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin }) 
           break;
       }
     } catch (error) {
-      console.error(`Failed window action '${action}':`, error);
+      // Silent fail
     }
   };
 
   return (
-    <div className="drag-handle" data-tauri-drag-region>
+    <div className="drag-handle">
       <div className="window-controls" role="group" aria-label="Window controls">
         <button
           className="window-control add-timer"

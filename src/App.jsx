@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
+import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import WindowControls from './components/WindowControls';
 import TimerCard from './components/TimerCard';
 import SettingsPanel, { DEFAULT_KEYBINDS } from './components/SettingsPanel';
@@ -13,6 +15,17 @@ function App() {
   const [keybinds, setKeybinds] = useState(DEFAULT_KEYBINDS);
   const [opacity, setOpacity] = useState(0.85);
   const [isPinned, setIsPinned] = useState(false);
+
+  // Refs to hold latest state for global shortcut event listener
+  // This prevents the listener from re-registering on every state change
+  const timersRef = useRef([]);
+  const selectedTimerIdRef = useRef(null);
+
+  // Keep refs in sync with state
+  useEffect(() => {
+    timersRef.current = timers;
+    selectedTimerIdRef.current = selectedTimerId;
+  }, [timers, selectedTimerId]);
 
   // Load timers and keybinds from localStorage on mount
   useEffect(() => {
@@ -44,7 +57,7 @@ function App() {
         return;
       }
     } catch (error) {
-      console.error('Failed to load from localStorage:', error);
+      // Silent fail - use default timer
     }
 
     // Default: Create one timer
@@ -64,10 +77,25 @@ function App() {
           opacity
         }));
       } catch (error) {
-        console.error('Failed to save to localStorage:', error);
+        // Silent fail
       }
     }
   }, [timers, selectedTimerId, keybinds, opacity]);
+
+  // Send keybinds to Rust for global shortcuts
+  useEffect(() => {
+    const updateRustShortcuts = async () => {
+      try {
+        await invoke('update_global_shortcuts', {
+          keybindsJson: JSON.stringify(keybinds)
+        });
+      } catch (error) {
+        // Silent fail
+      }
+    };
+
+    updateRustShortcuts();
+  }, [keybinds]);
 
   const createDefaultTimer = (number) => ({
     id: Date.now() + number,
@@ -77,6 +105,7 @@ function App() {
     isRunning: false,
     initialMinutes: 0,
     initialSeconds: 0,
+    hasFinished: false,
   });
 
   const updateTimer = useCallback((id, updates) => {
@@ -236,89 +265,68 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [timers, selectedTimerId, keybinds, settingsPanelOpen, updateTimer, selectTimer]);
 
-  // Listen for timer actions from inputbot (Rust global hotkeys)
+  // Listen for timer actions from Rust global hotkeys
+  // This effect runs ONCE on mount and persists for the app lifetime
   useEffect(() => {
     let unlisten;
 
     const setupListener = async () => {
-      console.log('🟢 [REACT] Setting up timer-action event listener');
-      console.log(`[REACT] Current timers state: ${JSON.stringify(timers.map(t => ({id: t.id, running: t.isRunning})))}`);
-
       try {
         unlisten = await listen('timer-action', (event) => {
-          console.log(`🎯 [REACT] Raw event received:`, event);
-          console.log(`[REACT] Event payload type: ${typeof event.payload}, value:`, event.payload);
+          // Use refs to get the latest state without re-registering the listener
+          const currentTimers = timersRef.current;
+          const currentSelectedTimerId = selectedTimerIdRef.current;
 
           const [action, timerIndex] = event.payload;
-          console.log(`🎯 [REACT] Timer action received: action='${action}', timerIndex=${timerIndex}`);
 
           if (action === 'toggle') {
-            const timer = timers[timerIndex];
-            console.log(`[REACT] Toggle action - Timer at index ${timerIndex}:`, timer);
+            const timer = currentTimers[timerIndex];
             if (!timer) {
-              console.error(`[REACT] Timer not found at index ${timerIndex}`);
               return;
             }
 
             if (!timer.isRunning && timer.minutes === 0 && timer.seconds === 0) {
-              console.log('⚠️ [REACT] Timer is at 00:00, not starting');
               return;
             }
-            console.log(`[REACT] Selecting timer ${timer.id} and toggling isRunning to ${!timer.isRunning}`);
             selectTimer(timer.id);
             updateTimer(timer.id, { isRunning: !timer.isRunning });
-            console.log(`[REACT] Timer ${timer.id} toggled successfully`);
           } else if (action === 'reset') {
-            const timer = timers[timerIndex];
-            console.log(`[REACT] Reset action - Timer at index ${timerIndex}:`, timer);
+            const timer = currentTimers[timerIndex];
             if (!timer) {
-              console.error(`[REACT] Timer not found at index ${timerIndex}`);
               return;
             }
 
-            console.log(`[REACT] Resetting timer ${timer.id} to ${timer.initialMinutes}:${timer.initialSeconds}`);
             selectTimer(timer.id);
             updateTimer(timer.id, {
               minutes: timer.initialMinutes,
               seconds: timer.initialSeconds,
               isRunning: false,
             });
-            console.log(`[REACT] Timer ${timer.id} reset successfully`);
           } else if (action === 'toggle-selected') {
-            const selectedTimer = timers.find(t => t.id === selectedTimerId);
-            console.log(`[REACT] Toggle-selected action - Selected timer:`, selectedTimer);
+            const selectedTimer = currentTimers.find(t => t.id === currentSelectedTimerId);
             if (!selectedTimer) {
-              console.error(`[REACT] Selected timer not found (selectedTimerId: ${selectedTimerId})`);
               return;
             }
 
             if (!selectedTimer.isRunning && selectedTimer.minutes === 0 && selectedTimer.seconds === 0) {
-              console.log('[REACT] Selected timer is at 00:00, not starting');
               return;
             }
-            console.log(`[REACT] Toggling selected timer ${selectedTimerId}`);
-            updateTimer(selectedTimerId, { isRunning: !selectedTimer.isRunning });
-            console.log(`[REACT] Selected timer toggled successfully`);
+            updateTimer(currentSelectedTimerId, { isRunning: !selectedTimer.isRunning });
           } else if (action === 'reset-selected') {
-            const selectedTimer = timers.find(t => t.id === selectedTimerId);
-            console.log(`[REACT] Reset-selected action - Selected timer:`, selectedTimer);
+            const selectedTimer = currentTimers.find(t => t.id === currentSelectedTimerId);
             if (!selectedTimer) {
-              console.error(`[REACT] Selected timer not found (selectedTimerId: ${selectedTimerId})`);
               return;
             }
 
-            console.log(`[REACT] Resetting selected timer ${selectedTimerId}`);
-            updateTimer(selectedTimerId, {
+            updateTimer(currentSelectedTimerId, {
               minutes: selectedTimer.initialMinutes,
               seconds: selectedTimer.initialSeconds,
               isRunning: false,
             });
-            console.log(`[REACT] Selected timer reset successfully`);
           }
         });
-        console.log('✅ [REACT] Event listener registered successfully');
       } catch (err) {
-        console.error(`[REACT] Failed to setup event listener:`, err);
+        // Silent fail
       }
     };
 
@@ -329,7 +337,47 @@ function App() {
         unlisten();
       }
     };
-  }, [timers, selectedTimerId, updateTimer, selectTimer]);
+  }, [updateTimer, selectTimer]); // Only re-register if callbacks change (which they don't)
+
+  // Manual drag handler for background-only dragging
+  useEffect(() => {
+    const handleMouseDown = async (e) => {
+      // Don't drag if pinned
+      if (isPinned) return;
+
+      // Only handle left mouse button
+      if (e.buttons !== 1) return;
+
+      const clickedElement = e.target;
+
+      // Check if clicked on background elements (draggable areas)
+      const isBackground =
+        clickedElement.classList.contains('app-container') ||
+        clickedElement.classList.contains('timers-content') ||
+        clickedElement.classList.contains('timers-grid') ||
+        clickedElement.tagName === 'BODY';
+
+      // Check if clicked on interactive content (non-draggable areas)
+      const isInteractive =
+        clickedElement.closest('.drag-handle') ||  // toolbar
+        clickedElement.closest('.timer-card') ||   // timer cards
+        clickedElement.closest('.settings-panel') || // settings
+        clickedElement.tagName === 'BUTTON' ||
+        clickedElement.tagName === 'INPUT';
+
+      // Start dragging only if clicking background AND not clicking interactive elements
+      if (isBackground && !isInteractive) {
+        try {
+          await getCurrentWindow().startDragging();
+        } catch (error) {
+          // Silent fail
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [isPinned]);
 
   return (
     <div className="app-container" style={{ opacity: opacity }}>
@@ -341,11 +389,6 @@ function App() {
       />
 
       <div className="timers-content">
-        <div
-          className="drag-bar"
-          data-tauri-drag-region={!isPinned}
-          style={{ WebkitAppRegion: isPinned ? 'no-drag' : 'drag', appRegion: isPinned ? 'no-drag' : 'drag' }}
-        ></div>
         <div className="timers-grid">
           {timers.map((timer, index) => (
             <TimerCard
@@ -358,6 +401,7 @@ function App() {
               initialMinutes={timer.initialMinutes}
               initialSeconds={timer.initialSeconds}
               isSelected={timer.id === selectedTimerId}
+              hasFinished={timer.hasFinished}
               onUpdate={updateTimer}
               onRemove={removeTimer}
               onSelect={selectTimer}
