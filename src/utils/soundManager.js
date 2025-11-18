@@ -28,10 +28,10 @@ export const playSound = (soundPath) => {
 
   try {
     const audio = new Audio(soundPath);
-    audio.play().catch(err => {
-      console.warn('Audio playback failed:', err);
+    audio.play().catch(() => {
+      // Silent error handling
     });
-  } catch (err) {
-    console.warn('Failed to create audio:', err);
+  } catch {
+    // Silent error handling
   }
 };

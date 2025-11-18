@@ -2,7 +2,6 @@
 
 use tauri::{Manager, Emitter};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
-use log::{info, debug, error};
 use serde::Deserialize;
 use std::sync::Mutex;
 
@@ -82,9 +81,6 @@ fn update_global_shortcuts(
     state: tauri::State<AppState>,
     keybinds_json: String,
 ) -> Result<(), String> {
-    info!("🔄 [RUST] Updating global shortcuts with new keybinds");
-    debug!("[RUST] Received keybinds JSON: {}", keybinds_json);
-
     // Parse keybinds
     let keybinds: KeybindsConfig = serde_json::from_str(&keybinds_json)
         .map_err(|e| format!("Failed to parse keybinds: {}", e))?;
@@ -93,7 +89,6 @@ fn update_global_shortcuts(
     {
         let mut registered = state.registered_shortcuts.lock().unwrap();
         for shortcut_str in registered.iter() {
-            info!("[RUST] Unregistering old shortcut: {}", shortcut_str);
             let _ = app.global_shortcut().unregister(shortcut_str.as_str());
         }
         registered.clear();
@@ -107,109 +102,101 @@ fn update_global_shortcuts(
 
         // Register toggle shortcut for this slot
         if let Some(toggle_keybind) = &slot.toggle {
+            // Skip registration if no modifiers (prevents system-wide key capture)
+            if toggle_keybind.modifiers.is_empty() {
+                continue;
+            }
+
             let shortcut_str = keybind_to_shortcut_string(toggle_keybind);
             let app_clone = app.clone();
 
-            info!("[RUST] Registering timer slot {} toggle: {}", i, shortcut_str);
-            match app.global_shortcut().on_shortcut(shortcut_str.as_str(), move |_app, shortcut, event| {
+            match app.global_shortcut().on_shortcut(shortcut_str.as_str(), move |_app, _shortcut, event| {
                 if event.state() == ShortcutState::Pressed {
-                    debug!("[RUST] Shortcut PRESSED: {}", shortcut);
                     let _ = app_clone.emit("timer-action", ("toggle", timer_index));
                 }
             }) {
                 Ok(_) => {
                     registered.push(shortcut_str);
                 }
-                Err(e) => error!("[RUST] Failed to register shortcut: {}", e),
+                Err(_) => {}
             }
         }
 
         // Register reset shortcut for this slot
         if let Some(reset_keybind) = &slot.reset {
+            // Skip registration if no modifiers (prevents system-wide key capture)
+            if reset_keybind.modifiers.is_empty() {
+                continue;
+            }
+
             let shortcut_str = keybind_to_shortcut_string(reset_keybind);
             let app_clone = app.clone();
 
-            info!("[RUST] Registering timer slot {} reset: {}", i, shortcut_str);
-            match app.global_shortcut().on_shortcut(shortcut_str.as_str(), move |_app, shortcut, event| {
+            match app.global_shortcut().on_shortcut(shortcut_str.as_str(), move |_app, _shortcut, event| {
                 if event.state() == ShortcutState::Pressed {
-                    debug!("[RUST] Shortcut PRESSED: {}", shortcut);
                     let _ = app_clone.emit("timer-action", ("reset", timer_index));
                 }
             }) {
                 Ok(_) => {
                     registered.push(shortcut_str);
                 }
-                Err(e) => error!("[RUST] Failed to register shortcut: {}", e),
+                Err(_) => {}
             }
         }
     }
 
     // Register selected timer shortcuts
     if let Some(toggle_keybind) = &keybinds.selected_timer.toggle {
-        let shortcut_str = keybind_to_shortcut_string(toggle_keybind);
-        let app_clone = app.clone();
+        // Skip registration if no modifiers (prevents system-wide key capture)
+        if !toggle_keybind.modifiers.is_empty() {
+            let shortcut_str = keybind_to_shortcut_string(toggle_keybind);
+            let app_clone = app.clone();
 
-        info!("[RUST] Registering selected timer toggle: {}", shortcut_str);
-        match app.global_shortcut().on_shortcut(shortcut_str.as_str(), move |_app, shortcut, event| {
-            if event.state() == ShortcutState::Pressed {
-                debug!("[RUST] Shortcut PRESSED: {}", shortcut);
-                let _ = app_clone.emit("timer-action", ("toggle-selected", 0));
+            match app.global_shortcut().on_shortcut(shortcut_str.as_str(), move |_app, _shortcut, event| {
+                if event.state() == ShortcutState::Pressed {
+                    let _ = app_clone.emit("timer-action", ("toggle-selected", 0));
+                }
+            }) {
+                Ok(_) => {
+                    registered.push(shortcut_str);
+                }
+                Err(_) => {}
             }
-        }) {
-            Ok(_) => {
-                registered.push(shortcut_str);
-            }
-            Err(e) => error!("[RUST] Failed to register shortcut: {}", e),
         }
     }
 
     if let Some(reset_keybind) = &keybinds.selected_timer.reset {
-        let shortcut_str = keybind_to_shortcut_string(reset_keybind);
-        let app_clone = app.clone();
+        // Skip registration if no modifiers (prevents system-wide key capture)
+        if !reset_keybind.modifiers.is_empty() {
+            let shortcut_str = keybind_to_shortcut_string(reset_keybind);
+            let app_clone = app.clone();
 
-        info!("[RUST] Registering selected timer reset: {}", shortcut_str);
-        match app.global_shortcut().on_shortcut(shortcut_str.as_str(), move |_app, shortcut, event| {
-            if event.state() == ShortcutState::Pressed {
-                debug!("[RUST] Shortcut PRESSED: {}", shortcut);
-                let _ = app_clone.emit("timer-action", ("reset-selected", 0));
+            match app.global_shortcut().on_shortcut(shortcut_str.as_str(), move |_app, _shortcut, event| {
+                if event.state() == ShortcutState::Pressed {
+                    let _ = app_clone.emit("timer-action", ("reset-selected", 0));
+                }
+            }) {
+                Ok(_) => {
+                    registered.push(shortcut_str);
+                }
+                Err(_) => {}
             }
-        }) {
-            Ok(_) => {
-                registered.push(shortcut_str);
-            }
-            Err(e) => error!("[RUST] Failed to register shortcut: {}", e),
         }
     }
 
-    info!("✅ [RUST] Global shortcuts updated successfully! Registered {} shortcuts", registered.len());
     Ok(())
 }
 
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
-            info!("🚀 Application starting up");
             let _window = app.get_webview_window("main").unwrap();
-            info!("✅ Main window obtained");
-            info!("⏳ Waiting for React to send keybind configuration...");
 
             Ok(())
         })
         .manage(AppState {
             registered_shortcuts: Mutex::new(Vec::new()),
         })
-        .plugin(tauri_plugin_log::Builder::new()
-            .target(tauri_plugin_log::Target::new(
-                tauri_plugin_log::TargetKind::Webview,
-            ))
-            .target(tauri_plugin_log::Target::new(
-                tauri_plugin_log::TargetKind::Folder {
-                    path: std::path::PathBuf::from("./logs"),
-                    file_name: Some("chrono_ghost".to_string())
-                },
-            ))
-            .level(log::LevelFilter::Debug)
-            .build())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             close_app,

@@ -107,10 +107,8 @@ export const registerGlobalShortcuts = async (keybinds, onToggle, onReset, timer
 
     // Wait for all registrations to complete
     await Promise.all(registrations);
-
-    console.log('Global shortcuts registered successfully');
   } catch (error) {
-    console.error('Failed to register global shortcuts:', error);
+    // Silent error handling
   }
 };
 
@@ -120,8 +118,7 @@ export const registerGlobalShortcuts = async (keybinds, onToggle, onReset, timer
 export const unregisterGlobalShortcuts = async () => {
   try {
     await unregisterAll();
-    console.log('Global shortcuts unregistered');
   } catch (error) {
-    console.error('Failed to unregister global shortcuts:', error);
+    // Silent error handling
   }
 };

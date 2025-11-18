@@ -58,8 +58,8 @@ body {
   padding: 12px 8px;
   background: rgba(0, 0, 0, 0.2);
   border-right: 1px solid var(--glass-border);
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+  -webkit-app-region: drag;
+  app-region: drag;
   z-index: 999;
 }
 
@@ -115,6 +115,10 @@ body {
   font-weight: 400;
 }
 
+.window-control.close {
+  margin-top: -8px;
+}
+
 .window-control.minimize:hover {
   background: rgba(255, 255, 255, 0.1);
 }
@@ -148,6 +152,7 @@ body {
 }
 
 .window-control.pin {
+  margin-top: -2px;
   font-size: 16px;
 }
 
@@ -330,15 +335,14 @@ body {
 
 .timers-grid {
   display: flex;
-  flex-direction: row;
+  flex-wrap: wrap;
   gap: clamp(10px, 1.5vw, 12px);
-  padding: clamp(8px, 1.5vh, 12px) clamp(8px, 1.5vh, 12px) clamp(8px, 1.5vh, 12px) clamp(8px, 1.5vh, 12px);
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+  padding: clamp(8px, 1.5vh, 12px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
   flex: 1;
-  align-items: stretch;
+  align-content: flex-start;
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
@@ -359,7 +363,7 @@ body {
   flex-direction: column;
   gap: clamp(4px, 1vh, 6px);
   min-width: 200px;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
@@ -504,6 +508,7 @@ body {
 
 /* Settings button in window controls */
 .window-control.settings {
+  margin-top: auto; /* Push to bottom, creating gap between content and system controls */
   font-size: 16px;
 }
 
@@ -537,7 +542,7 @@ body {
   top: 0;
   right: 0;
   bottom: 0;
-  width: clamp(320px, 40vw, 450px);
+  width: clamp(250px, 40vw, 450px);
   background: var(--glass);
   backdrop-filter: var(--backdrop-blur);
   -webkit-backdrop-filter: var(--backdrop-blur);
@@ -600,8 +605,10 @@ body {
 
 .settings-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: clamp(16px, 3vh, 24px) clamp(20px, 4vw, 28px);
+  overflow-x: hidden;
+  padding: 10px 12px;
 }
 
 .settings-content::-webkit-scrollbar {
@@ -623,7 +630,7 @@ body {
 }
 
 .settings-section {
-  margin-bottom: clamp(24px, 5vh, 32px);
+  margin-bottom: clamp(16px, 3vh, 20px);
 }
 
 .settings-section:last-child {
@@ -631,8 +638,8 @@ body {
 }
 
 .settings-section h3 {
-  margin: 0 0 clamp(8px, 2vh, 12px) 0;
-  font-size: clamp(1rem, 2.2vw, 1.15rem);
+  margin: 0 0 6px 0;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -640,23 +647,23 @@ body {
 }
 
 .settings-description {
-  margin: 0 0 clamp(12px, 2.5vh, 16px) 0;
-  font-size: clamp(0.8rem, 1.8vw, 0.9rem);
+  margin: 0 0 8px 0;
+  font-size: 0.65rem;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: 1.3;
 }
 
 .timer-slot-group {
-  margin-bottom: clamp(16px, 3vh, 20px);
-  padding: clamp(12px, 2.5vh, 16px);
+  margin-bottom: 10px;
+  padding: 8px;
   background: rgba(255, 255, 255, 0.03);
   border-radius: var(--border-radius-sm);
   border: 1px solid var(--glass-border);
 }
 
 .timer-slot-group h4 {
-  margin: 0 0 clamp(10px, 2vh, 12px) 0;
-  font-size: clamp(0.85rem, 2vw, 0.95rem);
+  margin: 0 0 6px 0;
+  font-size: 0.65rem;
   font-weight: 600;
   color: var(--text-primary);
 }
@@ -664,8 +671,8 @@ body {
 .keybind-capture-row {
   display: flex;
   flex-direction: column;
-  gap: clamp(6px, 1.2vh, 8px);
-  margin-bottom: clamp(12px, 2.5vh, 14px);
+  gap: 4px;
+  margin-bottom: 8px;
 }
 
 .keybind-capture-row:last-child {
@@ -673,7 +680,7 @@ body {
 }
 
 .keybind-label {
-  font-size: clamp(0.8rem, 1.8vw, 0.9rem);
+  font-size: 0.6rem;
   color: var(--text-secondary);
   font-weight: 500;
 }
@@ -686,13 +693,13 @@ body {
 
 .keybind-capture-btn {
   flex: 1;
-  min-height: 40px;
-  padding: clamp(8px, 2vh, 12px) clamp(12px, 2.5vw, 16px);
+  min-height: 28px;
+  padding: 4px 8px;
   border: 2px solid var(--glass-border);
   border-radius: var(--border-radius-sm);
   background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
-  font-size: clamp(0.85rem, 2vw, 0.95rem);
+  font-size: 0.65rem;
   font-weight: 600;
   font-family: 'Courier New', monospace;
   cursor: pointer;
@@ -760,20 +767,20 @@ body {
 }
 
 .settings-footer {
-  padding: clamp(16px, 3vh, 20px) clamp(20px, 4vw, 28px);
+  padding: 10px 12px;
   border-top: 1px solid var(--glass-border);
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-shrink: 0;
 }
 
 .settings-btn-primary,
 .settings-btn-secondary {
   flex: 1;
-  padding: clamp(12px, 2.5vh, 14px) 0;
+  padding: 8px 0;
   border: none;
   border-radius: var(--border-radius-sm);
-  font-size: clamp(0.9rem, 2vw, 1rem);
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;

@@ -187,7 +187,7 @@ jobs:
           tag: ${{ needs.version.outputs.tag }}
           name: "Release ${{ needs.version.outputs.tag }}"
           body: |
-            ## PhantomDigits ${{ needs.version.outputs.tag }}
+            ## ChronoGhost ${{ needs.version.outputs.tag }}
 
             Automated multi-platform build from commit ${{ github.sha }}.
 

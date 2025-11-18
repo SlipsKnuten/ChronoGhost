@@ -25,7 +25,38 @@ const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds, opacity, onO
 
   useEffect(() => {
     if (keybinds) {
-      setLocalKeybinds(keybinds);
+      // Migrate old F-key bindings to new Ctrl-based bindings
+      const migratedKeybinds = { ...keybinds };
+      let needsMigration = false;
+
+      // Check timer slots for F1-F9 keys
+      migratedKeybinds.timerSlots = keybinds.timerSlots.map((slot, index) => {
+        const defaultSlot = DEFAULT_KEYBINDS.timerSlots[index];
+        if (!defaultSlot) return slot;
+
+        const migratedSlot = { ...slot };
+
+        // Migrate toggle keybind if it uses F-key
+        if (slot.toggle && slot.toggle.key && slot.toggle.key.toLowerCase().match(/^f\d$/)) {
+          migratedSlot.toggle = defaultSlot.toggle;
+          needsMigration = true;
+        }
+
+        // Migrate reset keybind if it uses F-key
+        if (slot.reset && slot.reset.key && slot.reset.key.toLowerCase().match(/^f\d$/)) {
+          migratedSlot.reset = defaultSlot.reset;
+          needsMigration = true;
+        }
+
+        return migratedSlot;
+      });
+
+      setLocalKeybinds(migratedKeybinds);
+
+      // Auto-save migrated keybinds
+      if (needsMigration && onSaveKeybinds) {
+        onSaveKeybinds(migratedKeybinds);
+      }
     }
   }, [keybinds]);
 
@@ -134,12 +165,6 @@ const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds, opacity, onO
             <p className="settings-description">
               These keybinds control whichever timer is currently selected (highlighted).
             </p>
-            <KeybindCapture
-              label="Toggle (Start/Pause)"
-              currentKeybind={localKeybinds.selectedTimer.toggle}
-              onCapture={(kb) => handleSelectedTimerKeybindChange('toggle', kb)}
-              existingKeybinds={getAllKeybinds()}
-            />
             <KeybindCapture
               label="Reset"
               currentKeybind={localKeybinds.selectedTimer.reset}

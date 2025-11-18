@@ -49,7 +49,12 @@ const TimerCard = ({
         // Check if timer has reached zero
         if (minutes === 0 && seconds === 0) {
           clearInterval(intervalRef.current);
-          onUpdate(id, { isRunning: false, hasFinished: true });
+          onUpdate(id, {
+            isRunning: false,
+            hasFinished: true,
+            minutes: initialMinutes,
+            seconds: initialSeconds
+          });
           // Play sound on completion
           const soundPath = getSoundForTimer(timerPosition);
           playSound(soundPath);
@@ -83,7 +88,7 @@ const TimerCard = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, minutes, seconds, id, onUpdate]);
+  }, [isRunning, minutes, seconds, id, onUpdate, initialMinutes, initialSeconds, timerPosition]);
 
   const formatTime = (value) => {
     return String(value).padStart(2, '0');
