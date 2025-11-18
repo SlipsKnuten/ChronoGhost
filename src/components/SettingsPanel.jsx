@@ -3,30 +3,37 @@ import KeybindCapture from './KeybindCapture';
 
 const DEFAULT_KEYBINDS = {
   timerSlots: [
-    { slotNumber: 1, toggle: { key: 'F1', modifiers: [], label: 'F1' }, reset: { key: 'F1', modifiers: ['shift'], label: 'Shift+F1' } },
-    { slotNumber: 2, toggle: { key: 'F2', modifiers: [], label: 'F2' }, reset: { key: 'F2', modifiers: ['shift'], label: 'Shift+F2' } },
-    { slotNumber: 3, toggle: { key: 'F3', modifiers: [], label: 'F3' }, reset: { key: 'F3', modifiers: ['shift'], label: 'Shift+F3' } },
-    { slotNumber: 4, toggle: { key: 'F4', modifiers: [], label: 'F4' }, reset: { key: 'F4', modifiers: ['shift'], label: 'Shift+F4' } },
-    { slotNumber: 5, toggle: { key: 'F5', modifiers: [], label: 'F5' }, reset: { key: 'F5', modifiers: ['shift'], label: 'Shift+F5' } },
-    { slotNumber: 6, toggle: { key: 'F6', modifiers: [], label: 'F6' }, reset: { key: 'F6', modifiers: ['shift'], label: 'Shift+F6' } },
-    { slotNumber: 7, toggle: { key: 'F7', modifiers: [], label: 'F7' }, reset: { key: 'F7', modifiers: ['shift'], label: 'Shift+F7' } },
-    { slotNumber: 8, toggle: { key: 'F8', modifiers: [], label: 'F8' }, reset: { key: 'F8', modifiers: ['shift'], label: 'Shift+F8' } },
-    { slotNumber: 9, toggle: { key: 'F9', modifiers: [], label: 'F9' }, reset: { key: 'F9', modifiers: ['shift'], label: 'Shift+F9' } },
+    { slotNumber: 1, toggle: { key: '1', modifiers: ['ctrl'], label: 'Ctrl+1' }, reset: { key: '1', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+1' } },
+    { slotNumber: 2, toggle: { key: '2', modifiers: ['ctrl'], label: 'Ctrl+2' }, reset: { key: '2', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+2' } },
+    { slotNumber: 3, toggle: { key: '3', modifiers: ['ctrl'], label: 'Ctrl+3' }, reset: { key: '3', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+3' } },
+    { slotNumber: 4, toggle: { key: '4', modifiers: ['ctrl'], label: 'Ctrl+4' }, reset: { key: '4', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+4' } },
+    { slotNumber: 5, toggle: { key: '5', modifiers: ['ctrl'], label: 'Ctrl+5' }, reset: { key: '5', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+5' } },
+    { slotNumber: 6, toggle: { key: '6', modifiers: ['ctrl'], label: 'Ctrl+6' }, reset: { key: '6', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+6' } },
+    { slotNumber: 7, toggle: { key: '7', modifiers: ['ctrl'], label: 'Ctrl+7' }, reset: { key: '7', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+7' } },
+    { slotNumber: 8, toggle: { key: '8', modifiers: ['ctrl'], label: 'Ctrl+8' }, reset: { key: '8', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+8' } },
+    { slotNumber: 9, toggle: { key: '9', modifiers: ['ctrl'], label: 'Ctrl+9' }, reset: { key: '9', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+9' } },
   ],
   selectedTimer: {
-    toggle: { key: ' ', modifiers: [], label: 'Space' },
-    reset: { key: 'r', modifiers: [], label: 'R' }
+    toggle: { key: ' ', modifiers: ['ctrl'], label: 'Ctrl+Space' },
+    reset: { key: 'r', modifiers: ['ctrl'], label: 'Ctrl+R' }
   }
 };
 
-const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds }) => {
+const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds, opacity, onOpacityChange }) => {
   const [localKeybinds, setLocalKeybinds] = useState(keybinds || DEFAULT_KEYBINDS);
+  const [localOpacity, setLocalOpacity] = useState(opacity || 0.85);
 
   useEffect(() => {
     if (keybinds) {
       setLocalKeybinds(keybinds);
     }
   }, [keybinds]);
+
+  useEffect(() => {
+    if (opacity !== undefined) {
+      setLocalOpacity(opacity);
+    }
+  }, [opacity]);
 
   // Get all current keybinds for duplicate checking
   const getAllKeybinds = () => {
@@ -63,10 +70,18 @@ const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds }) => {
 
   const handleRestoreDefaults = () => {
     setLocalKeybinds(DEFAULT_KEYBINDS);
+    setLocalOpacity(0.85);
+  };
+
+  const handleOpacityChange = (e) => {
+    setLocalOpacity(parseFloat(e.target.value));
   };
 
   const handleSave = () => {
     onSaveKeybinds(localKeybinds);
+    if (onOpacityChange) {
+      onOpacityChange(localOpacity);
+    }
     onClose();
   };
 
@@ -91,6 +106,29 @@ const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds }) => {
         </div>
 
         <div className="settings-content">
+          <div className="settings-section">
+            <h3>Transparency</h3>
+            <p className="settings-description">
+              Adjust the opacity of the entire app. Useful for competitive gaming overlays.
+            </p>
+            <div className="opacity-slider-container">
+              <div className="opacity-labels">
+                <span className="opacity-label">Transparent (30%)</span>
+                <span className="opacity-value">{Math.round(localOpacity * 100)}%</span>
+                <span className="opacity-label">Opaque (100%)</span>
+              </div>
+              <input
+                type="range"
+                min="0.3"
+                max="1"
+                step="0.05"
+                value={localOpacity}
+                onChange={handleOpacityChange}
+                className="opacity-slider"
+              />
+            </div>
+          </div>
+
           <div className="settings-section">
             <h3>Selected Timer Keybinds</h3>
             <p className="settings-description">

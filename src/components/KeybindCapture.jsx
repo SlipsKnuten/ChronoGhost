@@ -18,6 +18,12 @@ const KeybindCapture = ({ label, currentKeybind, onCapture, existingKeybinds = [
         return;
       }
 
+      // Ignore modifier-only keys (Control, Shift, Alt, Meta, AltGraph)
+      const modifierKeys = ['Control', 'Shift', 'Alt', 'Meta', 'AltGraph'];
+      if (modifierKeys.includes(event.key)) {
+        return; // Don't capture, wait for actual key press
+      }
+
       // Build modifiers array
       const modifiers = [];
       if (event.ctrlKey || event.metaKey) modifiers.push('ctrl');

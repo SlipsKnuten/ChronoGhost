@@ -1,19 +1,19 @@
 import React, { useEffect, useRef } from 'react';
+import { getSoundForTimer, playSound } from '../utils/soundManager';
 
 const TimerCard = ({
   id,
   name,
-  hours,
   minutes,
   seconds,
   isRunning,
-  initialHours,
   initialMinutes,
   initialSeconds,
   isSelected,
   onUpdate,
   onRemove,
-  onSelect
+  onSelect,
+  timerPosition
 }) => {
   const intervalRef = useRef(null);
 
@@ -22,14 +22,16 @@ const TimerCard = ({
     if (isRunning) {
       intervalRef.current = setInterval(() => {
         // Check if timer has reached zero
-        if (hours === 0 && minutes === 0 && seconds === 0) {
+        if (minutes === 0 && seconds === 0) {
           clearInterval(intervalRef.current);
           onUpdate(id, { isRunning: false });
+          // Play sound on completion
+          const soundPath = getSoundForTimer(timerPosition);
+          playSound(soundPath);
           return;
         }
 
         // Countdown logic
-        let newHours = hours;
         let newMinutes = minutes;
         let newSeconds = seconds;
 
@@ -38,14 +40,9 @@ const TimerCard = ({
         } else if (newMinutes > 0) {
           newMinutes--;
           newSeconds = 59;
-        } else if (newHours > 0) {
-          newHours--;
-          newMinutes = 59;
-          newSeconds = 59;
         }
 
         onUpdate(id, {
-          hours: newHours,
           minutes: newMinutes,
           seconds: newSeconds
         });
@@ -61,7 +58,7 @@ const TimerCard = ({
         clearInterval(intervalRef.current);
       }
     };
-  }, [isRunning, hours, minutes, seconds, id, onUpdate]);
+  }, [isRunning, minutes, seconds, id, onUpdate]);
 
   const formatTime = (value) => {
     return String(value).padStart(2, '0');
@@ -71,9 +68,7 @@ const TimerCard = ({
     if (isRunning) return;
 
     let updates = {};
-    if (unit === 'hours' && hours < 99) {
-      updates = { hours: hours + 1, initialHours: hours + 1 };
-    } else if (unit === 'minutes' && minutes < 59) {
+    if (unit === 'minutes' && minutes < 99) {
       updates = { minutes: minutes + 1, initialMinutes: minutes + 1 };
     } else if (unit === 'seconds' && seconds < 59) {
       updates = { seconds: seconds + 1, initialSeconds: seconds + 1 };
@@ -88,9 +83,7 @@ const TimerCard = ({
     if (isRunning) return;
 
     let updates = {};
-    if (unit === 'hours' && hours > 0) {
-      updates = { hours: hours - 1, initialHours: hours - 1 };
-    } else if (unit === 'minutes' && minutes > 0) {
+    if (unit === 'minutes' && minutes > 0) {
       updates = { minutes: minutes - 1, initialMinutes: minutes - 1 };
     } else if (unit === 'seconds' && seconds > 0) {
       updates = { seconds: seconds - 1, initialSeconds: seconds - 1 };
@@ -103,7 +96,7 @@ const TimerCard = ({
 
   const toggleTimer = () => {
     // Don't start if all values are zero
-    if (!isRunning && hours === 0 && minutes === 0 && seconds === 0) {
+    if (!isRunning && minutes === 0 && seconds === 0) {
       return;
     }
 
@@ -112,7 +105,6 @@ const TimerCard = ({
 
   const resetTimer = () => {
     onUpdate(id, {
-      hours: initialHours,
       minutes: initialMinutes,
       seconds: initialSeconds,
       isRunning: false,
@@ -132,43 +124,34 @@ const TimerCard = ({
       className={`timer-card ${isSelected ? 'selected' : ''}`}
       onClick={handleCardClick}
     >
-      <button
-        className="delete-timer-btn"
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(id);
-        }}
-        aria-label="Delete timer"
-      >
-        ×
-      </button>
-
-      <input
-        type="text"
-        className="timer-name-input"
-        value={name}
-        onChange={handleNameChange}
-        onClick={(e) => e.stopPropagation()}
-        placeholder="Timer name"
-        maxLength={20}
-      />
+      <div className="timer-name-bar">
+        <input
+          type="text"
+          className="timer-name-input"
+          value={name}
+          onChange={handleNameChange}
+          onClick={(e) => e.stopPropagation()}
+          placeholder="Timer name"
+          maxLength={20}
+        />
+        <button
+          className="delete-timer-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(id);
+          }}
+          aria-label="Delete timer"
+        >
+          ×
+        </button>
+      </div>
 
       <div className="timer-display">
-        {formatTime(hours)}:{formatTime(minutes)}:{formatTime(seconds)}
+        {formatTime(minutes)}:{formatTime(seconds)}
       </div>
 
       <div className="timer-controls">
         <div className="time-setter">
-          <div className="time-unit">
-            <button className="increment-btn" onClick={(e) => { e.stopPropagation(); incrementTime('hours'); }} disabled={isRunning}>
-              +
-            </button>
-            <div className="unit-label">Hours</div>
-            <button className="decrement-btn" onClick={(e) => { e.stopPropagation(); decrementTime('hours'); }} disabled={isRunning}>
-              -
-            </button>
-          </div>
-
           <div className="time-unit">
             <button className="increment-btn" onClick={(e) => { e.stopPropagation(); incrementTime('minutes'); }} disabled={isRunning}>
               +

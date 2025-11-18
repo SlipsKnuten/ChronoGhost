@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import BlurText from './BlurText';
 
-const WindowControls = () => {
+const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin }) => {
   const appWindowRef = useRef(null);
 
   // Initialize Tauri window reference
@@ -104,15 +104,31 @@ const WindowControls = () => {
 
   return (
     <div className="drag-handle" data-tauri-drag-region>
-      <span className="label">
-        <BlurText
-          text="CHRONO GHOST"
-          delay={0.5}
-          animateBy="letters"
-          className="phantom-title"
-        />
-      </span>
       <div className="window-controls" role="group" aria-label="Window controls">
+        <button
+          className="window-control add-timer"
+          type="button"
+          onClick={onAddTimer}
+          aria-label="Add Timer"
+        >
+          +
+        </button>
+        <button
+          className="window-control settings"
+          type="button"
+          onClick={onSettingsClick}
+          aria-label="Settings"
+        >
+          ⚙
+        </button>
+        <button
+          className={`window-control pin ${isPinned ? 'active' : ''}`}
+          type="button"
+          onClick={onTogglePin}
+          aria-label={isPinned ? "Unpin Window" : "Pin Window"}
+        >
+          📌
+        </button>
         <button
           className="window-control minimize"
           type="button"
