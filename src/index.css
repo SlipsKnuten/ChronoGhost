@@ -333,6 +333,31 @@ body {
   cursor: grabbing;
 }
 
+/* Disable dragging when window is pinned/locked */
+.app-container.pinned .drag-handle,
+.app-container.pinned .drag-bar {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  cursor: default;
+}
+
+/* Disable all mouse input on interactive elements when locked (keyboard-only mode) */
+.app-container.pinned .timer-card,
+.app-container.pinned .timer-card *,
+.app-container.pinned .settings-panel,
+.app-container.pinned .settings-panel * {
+  pointer-events: none !important;
+}
+
+.app-container.pinned .timers-content {
+  opacity: 0.9;
+}
+
+/* Keep toolbar interactive so user can unpin */
+.app-container.pinned .drag-handle {
+  pointer-events: auto;
+}
+
 .timers-grid {
   display: flex;
   flex-wrap: wrap;

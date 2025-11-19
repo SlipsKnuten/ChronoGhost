@@ -9,6 +9,8 @@ import SettingsPanel, { DEFAULT_KEYBINDS } from './components/SettingsPanel';
 const STORAGE_KEY = 'chronoghost-timers';
 
 function App() {
+  console.log('[DEBUG] App component loaded at:', new Date().toISOString());
+
   const [timers, setTimers] = useState([]);
   const [selectedTimerId, setSelectedTimerId] = useState(null);
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
@@ -379,8 +381,29 @@ function App() {
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, [isPinned]);
 
+  // Sync window resizability with pin state
+  useEffect(() => {
+    const syncResizability = async () => {
+      console.log('[DEBUG] isPinned changed to:', isPinned);
+      console.log('[DEBUG] Setting window resizable to:', !isPinned);
+
+      try {
+        const window = await getCurrentWindow();
+        console.log('[DEBUG] Got window instance:', window);
+
+        await window.setResizable(!isPinned);
+        console.log('[DEBUG] setResizable succeeded! Window is now', !isPinned ? 'resizable' : 'not resizable');
+      } catch (error) {
+        console.error('[DEBUG] setResizable FAILED with error:', error);
+        console.error('[DEBUG] Error details:', error.message, error.stack);
+      }
+    };
+
+    syncResizability();
+  }, [isPinned]);
+
   return (
-    <div className="app-container" style={{ opacity: opacity }}>
+    <div className={`app-container${isPinned ? ' pinned' : ''}`} style={{ opacity: opacity }}>
       <WindowControls
         onSettingsClick={handleSettingsClick}
         onAddTimer={addTimer}

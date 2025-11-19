@@ -51,6 +51,15 @@ const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds, opacity, onO
         return migratedSlot;
       });
 
+      // Migrate selected timer reset keybind if it doesn't have modifiers
+      if (migratedKeybinds.selectedTimer &&
+          migratedKeybinds.selectedTimer.reset &&
+          migratedKeybinds.selectedTimer.reset.modifiers &&
+          migratedKeybinds.selectedTimer.reset.modifiers.length === 0) {
+        migratedKeybinds.selectedTimer.reset = DEFAULT_KEYBINDS.selectedTimer.reset;
+        needsMigration = true;
+      }
+
       setLocalKeybinds(migratedKeybinds);
 
       // Auto-save migrated keybinds

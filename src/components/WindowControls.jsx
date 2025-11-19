@@ -107,6 +107,7 @@ const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin }) 
           className="window-control add-timer"
           type="button"
           onClick={onAddTimer}
+          disabled={isPinned}
           aria-label="Add Timer"
         >
           +
@@ -115,14 +116,15 @@ const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin }) 
           className={`window-control pin ${isPinned ? 'active' : ''}`}
           type="button"
           onClick={onTogglePin}
-          aria-label={isPinned ? "Unpin Window" : "Pin Window"}
+          aria-label={isPinned ? "Unlock Window" : "Lock Window"}
         >
-          📌
+          {isPinned ? '🔒' : '🔓'}
         </button>
         <button
           className="window-control settings"
           type="button"
           onClick={onSettingsClick}
+          disabled={isPinned}
           aria-label="Settings"
         >
           ⚙
@@ -131,12 +133,14 @@ const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin }) 
           className="window-control minimize"
           type="button"
           onClick={() => executeWindowAction('minimize')}
+          disabled={isPinned}
           aria-label="Minimize"
         />
         <button
           className="window-control close"
           type="button"
           onClick={() => executeWindowAction('close')}
+          disabled={isPinned}
           aria-label="Close"
         />
       </div>
