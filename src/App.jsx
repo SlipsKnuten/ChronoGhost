@@ -237,49 +237,9 @@ function App() {
     console.log('[DEBUG] Setting new pinned state to:', newPinnedState);
     setIsPinned(newPinnedState);
 
-    // Auto-collapse toolbar when locking, auto-expand when unlocking
-    setIsToolbarCollapsed(newPinnedState);
-    console.log('[DEBUG] Setting toolbar collapsed to:', newPinnedState);
-
-    // Enable/disable click-through and resize window
-    try {
-      const window = await getCurrentWindow();
-
-      if (newPinnedState) {
-        // Locking - shrink window by measured toolbar width (use ref for latest value)
-        const size = await window.innerSize();
-        const shrinkBy = toolbarWidthRef.current;
-        originalWindowSizeRef.current = { width: size.width, height: size.height };
-        await invoke('resize_window_native', {
-          window,
-          width: size.width - shrinkBy,
-          height: size.height
-        });
-        console.log('[DEBUG] Window shrunk by', shrinkBy, 'px (measured) using native API');
-      } else {
-        // Unlocking - restore window
-        if (originalWindowSizeRef.current) {
-          await invoke('resize_window_native', {
-            window,
-            width: originalWindowSizeRef.current.width,
-            height: originalWindowSizeRef.current.height
-          });
-          console.log('[DEBUG] Window restored to original size:', originalWindowSizeRef.current);
-        }
-      }
-
-      await invoke('set_ignore_cursor_events', {
-        window,
-        ignore: newPinnedState
-      });
-      console.log('[DEBUG] Click-through set to:', newPinnedState);
-
-      // Show toast notification
-      setToastMessage(newPinnedState ? '🔒 Locked (Click-through enabled)' : '🔓 Unlocked');
-      setToastVisible(true);
-    } catch (error) {
-      console.error('Failed to set click-through or resize:', error);
-    }
+    // Show toast notification (toolbar button doesn't enable click-through)
+    setToastMessage(newPinnedState ? '🔒 Locked' : '🔓 Unlocked');
+    setToastVisible(true);
   };
 
   const handleToggleToolbar = () => {
@@ -616,6 +576,16 @@ function App() {
 
     syncResizability();
   }, [isPinned]);
+
+  // Disable right-click context menu
+  useEffect(() => {
+    const disableContextMenu = (e) => e.preventDefault();
+    window.addEventListener("contextmenu", disableContextMenu);
+
+    return () => {
+      window.removeEventListener("contextmenu", disableContextMenu);
+    };
+  }, []);
 
   return (
     <div className={`app-container${isPinned ? ' pinned' : ''}${isToolbarCollapsed ? ' toolbar-collapsed' : ''}`} style={{ opacity: opacity }}>
