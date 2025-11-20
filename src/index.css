@@ -55,7 +55,7 @@ body {
   align-items: center;
   justify-content: flex-start;
   gap: 12px;
-  padding: 12px 8px;
+  padding: 17px 8px 12px 8px;
   background: rgba(0, 0, 0, 0.2);
   backdrop-filter: var(--backdrop-blur);
   -webkit-backdrop-filter: var(--backdrop-blur);
@@ -380,7 +380,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 11px;
-  padding: 10px;
+  padding: 15px 10px 10px 10px;
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
@@ -966,24 +966,27 @@ body {
 /* Floating expand button (appears when toolbar is collapsed) */
 .floating-expand-btn {
   position: absolute;
-  top: 12px;
-  left: 12px;
-  width: 32px;
-  height: 32px;
-  border: none;
-  border-radius: 50%;
+  top: 50%;
+  left: 8px;
+  transform: translateY(calc(-50% - 2px));
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 14px;
+  opacity: 0.8;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
   cursor: pointer;
-  z-index: 100;
-  transition: all 200ms ease;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid var(--glass-border);
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 20;
+}
+
+.floating-expand-btn:hover {
+  opacity: 1;
+  transform: translateY(calc(-50% - 2px)) scale(1.1);
 }
 
 .floating-expand-btn.locked {

@@ -28,7 +28,9 @@ const TimerCard = ({
   onSelect,
   timerPosition,
   hasFinished,
-  isPinned
+  isPinned,
+  isToolbarCollapsed,
+  onExpandToolbar
 }) => {
   const intervalRef = useRef(null);
   const timerColor = TIMER_COLORS[timerPosition % TIMER_COLORS.length];
@@ -160,6 +162,19 @@ const TimerCard = ({
           <span className="lock-indicator" aria-label="Locked">
             🔒
           </span>
+        )}
+        {isToolbarCollapsed && !isPinned && timerPosition === 0 && (
+          <button
+            className="floating-expand-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onExpandToolbar();
+            }}
+            aria-label="Expand toolbar"
+            title="Click to expand toolbar"
+          >
+            ▶
+          </button>
         )}
         <input
           type="text"

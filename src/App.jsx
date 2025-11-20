@@ -5,7 +5,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import WindowControls from './components/WindowControls';
 import TimerCard from './components/TimerCard';
 import SettingsPanel, { DEFAULT_KEYBINDS } from './components/SettingsPanel';
-import FloatingExpandButton from './components/FloatingExpandButton';
 import Toast from './components/Toast';
 
 const STORAGE_KEY = 'chronoghost-timers';
@@ -60,6 +59,25 @@ function App() {
         toolbarWidthRef.current = physicalWidth; // Store in ref for immediate access
         setToolbarWidth(physicalWidth);
         console.log('[DEBUG] Measured toolbar - CSS width:', Math.round(cssWidth), 'px, DPR:', dpr, ', Base:', baseWidth, 'px, Final:', physicalWidth, 'px');
+
+        // Debug: Measure window and content dimensions
+        const windowInstance = await getCurrentWindow();
+        const windowSize = await windowInstance.innerSize();
+        console.log('[DEBUG] Window dimensions:');
+        console.log('  - Physical pixels:', windowSize.width, 'x', windowSize.height);
+        console.log('  - CSS pixels (window.inner):', window.innerWidth, 'x', window.innerHeight);
+        console.log('  - CSS pixels (document.client):', document.documentElement.clientWidth, 'x', document.documentElement.clientHeight);
+
+        // Measure timers-grid element
+        const timersGrid = document.querySelector('.timers-grid');
+        if (timersGrid) {
+          const gridRect = timersGrid.getBoundingClientRect();
+          console.log('[DEBUG] Timers grid:');
+          console.log('  - clientHeight (visible):', timersGrid.clientHeight, 'px');
+          console.log('  - scrollHeight (content):', timersGrid.scrollHeight, 'px');
+          console.log('  - Overflow:', timersGrid.scrollHeight > timersGrid.clientHeight ? 'YES (scrollbar needed)' : 'NO');
+          console.log('  - Actual rect:', Math.round(gridRect.width), 'x', Math.round(gridRect.height));
+        }
       }
     };
 
@@ -242,17 +260,63 @@ function App() {
     setToastVisible(true);
   };
 
-  const handleToggleToolbar = () => {
+  const handleToggleToolbar = async () => {
     // Only allow manual collapse/expand when NOT pinned
     if (!isPinned) {
-      setIsToolbarCollapsed(prev => !prev);
+      const newCollapsedState = !isToolbarCollapsed;
+      setIsToolbarCollapsed(newCollapsedState);
+
+      // Resize window when collapsing/expanding (like lock, but without click-through)
+      try {
+        const window = await getCurrentWindow();
+
+        if (newCollapsedState) {
+          // Collapsing - shrink window by toolbar width
+          const size = await window.innerSize();
+          const shrinkBy = toolbarWidthRef.current;
+          originalWindowSizeRef.current = { width: size.width, height: size.height };
+          await invoke('resize_window_native', {
+            window,
+            width: size.width - shrinkBy,
+            height: size.height
+          });
+          console.log('[DEBUG] Collapsed toolbar - window shrunk by', shrinkBy, 'px');
+        } else {
+          // Expanding - restore original window size
+          if (originalWindowSizeRef.current) {
+            await invoke('resize_window_native', {
+              window,
+              width: originalWindowSizeRef.current.width,
+              height: originalWindowSizeRef.current.height
+            });
+            console.log('[DEBUG] Expanded toolbar - window restored to:', originalWindowSizeRef.current);
+          }
+        }
+      } catch (error) {
+        console.error('[DEBUG] Failed to resize window on collapse/expand:', error);
+      }
     }
   };
 
-  const handleExpandToolbar = () => {
+  const handleExpandToolbar = async () => {
     // Floating button only expands toolbar, doesn't unlock
     if (!isPinned) {
       setIsToolbarCollapsed(false);
+
+      // Restore window size when expanding
+      try {
+        const window = await getCurrentWindow();
+        if (originalWindowSizeRef.current) {
+          await invoke('resize_window_native', {
+            window,
+            width: originalWindowSizeRef.current.width,
+            height: originalWindowSizeRef.current.height
+          });
+          console.log('[DEBUG] Expanded toolbar (via button) - window restored to:', originalWindowSizeRef.current);
+        }
+      } catch (error) {
+        console.error('[DEBUG] Failed to resize window on expand:', error);
+      }
     }
   };
 
@@ -600,12 +664,6 @@ function App() {
       />
 
       <div className="timers-content">
-        {isToolbarCollapsed && !isPinned && (
-          <FloatingExpandButton
-            isPinned={isPinned}
-            onExpand={handleExpandToolbar}
-          />
-        )}
         <div className="timers-grid">
           {timers.map((timer, index) => (
             <TimerCard
@@ -624,6 +682,8 @@ function App() {
               onSelect={selectTimer}
               timerPosition={index}
               isPinned={isPinned}
+              isToolbarCollapsed={isToolbarCollapsed}
+              onExpandToolbar={handleExpandToolbar}
             />
           ))}
         </div>
