@@ -27,7 +27,8 @@ const TimerCard = ({
   onRemove,
   onSelect,
   timerPosition,
-  hasFinished
+  hasFinished,
+  isPinned
 }) => {
   const intervalRef = useRef(null);
   const timerColor = TIMER_COLORS[timerPosition % TIMER_COLORS.length];
@@ -155,6 +156,11 @@ const TimerCard = ({
       onClick={handleCardClick}
     >
       <div className="timer-name-bar">
+        {isPinned && timerPosition === 0 && (
+          <span className="lock-indicator" aria-label="Locked">
+            🔒
+          </span>
+        )}
         <input
           type="text"
           className="timer-name-input"

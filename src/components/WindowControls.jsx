@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef } from 'react';
 import BlurText from './BlurText';
 
-const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin, onCollapseToolbar, isCollapsed }) => {
+const WindowControls = forwardRef(({ onSettingsClick, onAddTimer, isPinned, onTogglePin, onCollapseToolbar, isCollapsed }, ref) => {
   const appWindowRef = useRef(null);
 
   // Initialize Tauri window reference
@@ -101,7 +101,7 @@ const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin, on
   };
 
   return (
-    <div className={`drag-handle${isCollapsed ? ' collapsed' : ''}`}>
+    <div ref={ref} className={`drag-handle${isCollapsed ? ' collapsed' : ''}`}>
       <div className="window-controls" role="group" aria-label="Window controls">
         <button
           className="window-control collapse-toolbar"
@@ -154,6 +154,8 @@ const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin, on
       </div>
     </div>
   );
-};
+});
+
+WindowControls.displayName = 'WindowControls';
 
 export default WindowControls;

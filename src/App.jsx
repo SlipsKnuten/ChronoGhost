@@ -29,12 +29,57 @@ function App() {
   const selectedTimerIdRef = useRef(null);
   const lastToggleTimeRef = useRef(0);
   const originalWindowSizeRef = useRef(null);
+  const toolbarRef = useRef(null);
+  const toolbarWidthRef = useRef(80); // Store measured width in ref for immediate access
+  const [toolbarWidth, setToolbarWidth] = useState(80); // Default fallback, will be measured
 
   // Keep refs in sync with state
   useEffect(() => {
     timersRef.current = timers;
     selectedTimerIdRef.current = selectedTimerId;
   }, [timers, selectedTimerId]);
+
+  // Measure actual toolbar width after render
+  // IMPORTANT: In Tauri, window.innerSize() returns physical pixels that already account for DPI.
+  // We need to convert CSS pixels to physical pixels, but devicePixelRatio is unreliable in Tauri.
+  // Solution: Use offsetWidth (which gives us the actual rendered size) and scale it appropriately.
+  useEffect(() => {
+    const measureToolbar = async () => {
+      if (toolbarRef.current) {
+        const cssWidth = toolbarRef.current.getBoundingClientRect().width;
+        const dpr = window.devicePixelRatio || 1;
+
+        // For Tauri, we need to account for the fact that the window size is already in physical pixels
+        // but getBoundingClientRect returns CSS pixels. The actual relationship depends on the monitor DPI.
+        // Based on testing: 4K@150% needs ~90px, 2K@100% needs ~59px
+        // The pattern: CSS width * DPR + offset for borders/padding
+        const baseWidth = Math.round(cssWidth * dpr);
+        // Offset varies by DPI: 0px for high DPI (4K), -1px for standard DPI (2K)
+        const physicalWidth = baseWidth + (dpr > 1 ? 0 : -1);
+
+        toolbarWidthRef.current = physicalWidth; // Store in ref for immediate access
+        setToolbarWidth(physicalWidth);
+        console.log('[DEBUG] Measured toolbar - CSS width:', Math.round(cssWidth), 'px, DPR:', dpr, ', Base:', baseWidth, 'px, Final:', physicalWidth, 'px');
+      }
+    };
+
+    // Measure on mount
+    measureToolbar();
+
+    // Also measure after a short delay to ensure DOM is fully rendered
+    const timer = setTimeout(measureToolbar, 100);
+
+    // Remeasure when window is moved (DPI might change between screens)
+    const handleResize = () => {
+      measureToolbar();
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   // Load timers and keybinds from localStorage on mount
   useEffect(() => {
@@ -199,18 +244,18 @@ function App() {
     // Enable/disable click-through and resize window
     try {
       const window = await getCurrentWindow();
-      const TOOLBAR_WIDTH = 90;
 
       if (newPinnedState) {
-        // Locking - shrink window
+        // Locking - shrink window by measured toolbar width (use ref for latest value)
         const size = await window.innerSize();
+        const shrinkBy = toolbarWidthRef.current;
         originalWindowSizeRef.current = { width: size.width, height: size.height };
         await invoke('resize_window_native', {
           window,
-          width: size.width - TOOLBAR_WIDTH,
+          width: size.width - shrinkBy,
           height: size.height
         });
-        console.log('[DEBUG] Window shrunk by', TOOLBAR_WIDTH, 'px using native API');
+        console.log('[DEBUG] Window shrunk by', shrinkBy, 'px (measured) using native API');
       } else {
         // Unlocking - restore window
         if (originalWindowSizeRef.current) {
@@ -457,18 +502,18 @@ function App() {
             (async () => {
               try {
                 const window = await getCurrentWindow();
-                const TOOLBAR_WIDTH = 90;
 
                 if (newPinnedState) {
-                  // Locking - shrink window
+                  // Locking - shrink window by measured toolbar width (use ref for latest value)
                   const size = await window.innerSize();
+                  const shrinkBy = toolbarWidthRef.current;
                   originalWindowSizeRef.current = { width: size.width, height: size.height };
                   await invoke('resize_window_native', {
                     window,
-                    width: size.width - TOOLBAR_WIDTH,
+                    width: size.width - shrinkBy,
                     height: size.height
                   });
-                  console.log('[DEBUG] Global hotkey - window shrunk by', TOOLBAR_WIDTH, 'px');
+                  console.log('[DEBUG] Global hotkey - window shrunk by', shrinkBy, 'px (measured)');
                 } else {
                   // Unlocking - restore window
                   if (originalWindowSizeRef.current) {
@@ -575,6 +620,7 @@ function App() {
   return (
     <div className={`app-container${isPinned ? ' pinned' : ''}${isToolbarCollapsed ? ' toolbar-collapsed' : ''}`} style={{ opacity: opacity }}>
       <WindowControls
+        ref={toolbarRef}
         onSettingsClick={handleSettingsClick}
         onAddTimer={addTimer}
         isPinned={isPinned}
@@ -584,7 +630,7 @@ function App() {
       />
 
       <div className="timers-content">
-        {isToolbarCollapsed && (
+        {isToolbarCollapsed && !isPinned && (
           <FloatingExpandButton
             isPinned={isPinned}
             onExpand={handleExpandToolbar}
@@ -607,6 +653,7 @@ function App() {
               onRemove={removeTimer}
               onSelect={selectTimer}
               timerPosition={index}
+              isPinned={isPinned}
             />
           ))}
         </div>
