@@ -48,7 +48,7 @@ body {
   position: fixed;
   left: 0;
   top: 0;
-  width: 70px;
+  width: clamp(60px, 8vw, 80px);
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -200,25 +200,25 @@ body {
 .timer-controls {
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 16px 12px 20px;
+  gap: clamp(16px, 4vh, 24px);
+  padding: clamp(12px, 3vh, 20px) 12px clamp(16px, 4vh, 24px);
 }
 
 .time-setter {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
+  gap: clamp(8px, 2vw, 12px);
 }
 
 .time-unit {
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: clamp(6px, 1.5vh, 8px);
   align-items: center;
 }
 
 .unit-label {
-  font-size: 0.75rem;
+  font-size: clamp(0.7rem, 2vw, 0.85rem);
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -230,10 +230,10 @@ body {
   width: 100%;
   border: none;
   border-radius: var(--border-radius-sm);
-  font-size: 1.3rem;
+  font-size: clamp(1.2rem, 3vw, 1.6rem);
   font-weight: 600;
   color: var(--text-primary);
-  padding: 10px 0;
+  padding: clamp(8px, 2vh, 12px) 0;
   background: rgba(248, 250, 252, 0.05);
   cursor: pointer;
   transition: background 120ms ease, transform 120ms ease;
@@ -265,15 +265,15 @@ body {
 .action-buttons {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: clamp(8px, 2vw, 12px);
 }
 
 .action-btn {
   border: none;
   border-radius: var(--border-radius-sm);
-  font-size: 1rem;
+  font-size: clamp(0.95rem, 2.5vw, 1.1rem);
   font-weight: 600;
-  padding: 16px 0;
+  padding: clamp(14px, 3.5vh, 18px) 0;
   cursor: pointer;
   transition: background 120ms ease, transform 120ms ease;
   -webkit-app-region: no-drag;
@@ -331,14 +331,14 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding-left: 70px;
+  padding-left: clamp(60px, 8vw, 80px);
   background: var(--glass);
   backdrop-filter: var(--backdrop-blur);
   -webkit-backdrop-filter: var(--backdrop-blur);
 }
 
 .drag-bar {
-  height: 6px;
+  height: clamp(4px, 1vh, 8px);
   width: 100%;
   -webkit-app-region: drag;
   app-region: drag;
@@ -379,8 +379,8 @@ body {
 .timers-grid {
   display: flex;
   flex-wrap: wrap;
-  gap: 11px;
-  padding: 10px;
+  gap: clamp(10px, 1.5vw, 12px);
+  padding: clamp(8px, 1.5vh, 12px);
   overflow-y: auto;
   overflow-x: hidden;
   flex: 1;
@@ -394,12 +394,12 @@ body {
   background: rgba(248, 250, 252, 0.03);
   border: 2px solid transparent;
   border-radius: var(--border-radius-lg);
-  padding: 12px;
+  padding: clamp(10px, 1.5vh, 14px);
   cursor: pointer;
   transition: border-color 200ms ease, background 200ms ease;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: clamp(4px, 1vh, 6px);
   min-width: 200px;
   max-width: 200px;
   flex: 0 0 auto;
@@ -444,8 +444,8 @@ body {
   background: rgba(248, 250, 252, 0.08);
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-sm);
-  padding: 10px 12px;
-  font-size: 1.15rem;
+  padding: clamp(8px, 1.8vh, 12px) clamp(10px, 2vw, 14px);
+  font-size: clamp(1.05rem, 2.8vw, 1.3rem);
   font-weight: 700;
   color: var(--text-primary);
   text-align: center;
@@ -520,26 +520,26 @@ body {
 
 .timer-card .timer-controls {
   padding: 0;
-  gap: 7px;
+  gap: clamp(6px, 1.5vh, 8px);
 }
 
 .timer-card .time-setter {
-  gap: 8px;
+  gap: clamp(6px, 1.5vw, 10px);
 }
 
 .timer-card .unit-label {
-  font-size: 0.7rem;
+  font-size: clamp(0.65rem, 1.8vw, 0.75rem);
 }
 
 .timer-card .increment-btn,
 .timer-card .decrement-btn {
-  font-size: 1.15rem;
-  padding: 8px 0;
+  font-size: clamp(1rem, 2.5vw, 1.3rem);
+  padding: clamp(6px, 1.5vh, 10px) 0;
 }
 
 .timer-card .action-btn {
-  font-size: 0.88rem;
-  padding: 7px 0;
+  font-size: clamp(0.8rem, 2vw, 0.95rem);
+  padding: clamp(6px, 1.5vh, 8px) 0;
 }
 
 /* Scrollbar styling */
@@ -598,7 +598,7 @@ body {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 350px;
+  width: clamp(250px, 40vw, 450px);
   background: var(--glass);
   backdrop-filter: var(--backdrop-blur);
   -webkit-backdrop-filter: var(--backdrop-blur);
@@ -617,7 +617,7 @@ body {
 }
 
 .settings-header {
-  padding: 20px 24px;
+  padding: clamp(16px, 3vh, 24px) clamp(20px, 4vw, 28px);
   border-bottom: 1px solid var(--glass-border);
   display: flex;
   justify-content: space-between;
@@ -627,7 +627,7 @@ body {
 
 .settings-header h2 {
   margin: 0;
-  font-size: 1.35rem;
+  font-size: clamp(1.2rem, 3vw, 1.5rem);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -691,7 +691,7 @@ body {
 }
 
 .settings-section {
-  margin-bottom: 18px;
+  margin-bottom: clamp(16px, 3vh, 20px);
 }
 
 .settings-section:last-child {
@@ -821,7 +821,7 @@ body {
 }
 
 .keybind-error {
-  font-size: 0.8rem;
+  font-size: clamp(0.75rem, 1.6vw, 0.85rem);
   color: rgba(239, 68, 68, 1);
   font-weight: 500;
   margin-top: 4px;
@@ -882,14 +882,14 @@ body {
 .opacity-slider-container {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: clamp(10px, 2vh, 14px);
 }
 
 .opacity-labels {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.8rem;
+  font-size: clamp(0.75rem, 1.6vw, 0.85rem);
 }
 
 .opacity-label {
@@ -900,7 +900,7 @@ body {
 .opacity-value {
   color: var(--accent);
   font-weight: 700;
-  font-size: 0.97rem;
+  font-size: clamp(0.9rem, 2vw, 1.05rem);
 }
 
 .opacity-slider {
@@ -1047,7 +1047,7 @@ body {
   border-radius: var(--border-radius-sm);
   padding: 12px 24px;
   color: var(--text-primary);
-  font-size: 0.95rem;
+  font-size: clamp(0.9rem, 2vw, 1rem);
   font-weight: 600;
   z-index: 10000;
   opacity: 0;
