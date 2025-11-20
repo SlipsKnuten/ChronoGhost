@@ -288,9 +288,9 @@ fn main() {
         .setup(|app| {
             let _window = app.get_webview_window("main").unwrap();
 
-            // Register Ctrl+Shift+L global hotkey for lock toggle
+            // Register CommandOrControl+Shift+L global hotkey for lock toggle
             let app_handle = app.handle().clone();
-            let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+L", move |_app, _shortcut, event| {
+            let _ = app.global_shortcut().on_shortcut("CommandOrControl+Shift+L", move |_app, _shortcut, event| {
                 if event.state() == ShortcutState::Pressed {
                     let _ = app_handle.emit("toggle-lock", ());
                 }
@@ -302,6 +302,7 @@ fn main() {
             registered_shortcuts: Mutex::new(Vec::new()),
         })
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_os::init())
         .invoke_handler(tauri::generate_handler![
             close_app,
             minimize_window,

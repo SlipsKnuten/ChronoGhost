@@ -598,7 +598,7 @@ body {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 350px;
+  width: 290px;
   background: var(--glass);
   backdrop-filter: var(--backdrop-blur);
   -webkit-backdrop-filter: var(--backdrop-blur);

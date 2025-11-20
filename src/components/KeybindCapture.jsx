@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { getModifierKey } from '../utils/platform';
 
 const KeybindCapture = ({ label, currentKeybind, onCapture, existingKeybinds = [] }) => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState('');
+  const modifierSymbol = getModifierKey();
 
   useEffect(() => {
     if (!isCapturing) return;
@@ -63,7 +65,7 @@ const KeybindCapture = ({ label, currentKeybind, onCapture, existingKeybinds = [
   const formatKeybindLabel = (key, modifiers) => {
     const parts = [];
 
-    if (modifiers.includes('ctrl')) parts.push('Ctrl');
+    if (modifiers.includes('ctrl')) parts.push(modifierSymbol);
     if (modifiers.includes('shift')) parts.push('Shift');
     if (modifiers.includes('alt')) parts.push('Alt');
 

@@ -1,37 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import KeybindCapture from './KeybindCapture';
+import { getModifierKey } from '../utils/platform';
 
-const DEFAULT_KEYBINDS = {
+const generateDefaultKeybinds = (modifierSymbol) => ({
   timerSlots: [
-    { slotNumber: 1, toggle: { key: '1', modifiers: ['ctrl'], label: 'Ctrl+1' }, reset: { key: '1', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+1' } },
-    { slotNumber: 2, toggle: { key: '2', modifiers: ['ctrl'], label: 'Ctrl+2' }, reset: { key: '2', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+2' } },
-    { slotNumber: 3, toggle: { key: '3', modifiers: ['ctrl'], label: 'Ctrl+3' }, reset: { key: '3', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+3' } },
-    { slotNumber: 4, toggle: { key: '4', modifiers: ['ctrl'], label: 'Ctrl+4' }, reset: { key: '4', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+4' } },
-    { slotNumber: 5, toggle: { key: '5', modifiers: ['ctrl'], label: 'Ctrl+5' }, reset: { key: '5', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+5' } },
-    { slotNumber: 6, toggle: { key: '6', modifiers: ['ctrl'], label: 'Ctrl+6' }, reset: { key: '6', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+6' } },
-    { slotNumber: 7, toggle: { key: '7', modifiers: ['ctrl'], label: 'Ctrl+7' }, reset: { key: '7', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+7' } },
-    { slotNumber: 8, toggle: { key: '8', modifiers: ['ctrl'], label: 'Ctrl+8' }, reset: { key: '8', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+8' } },
-    { slotNumber: 9, toggle: { key: '9', modifiers: ['ctrl'], label: 'Ctrl+9' }, reset: { key: '9', modifiers: ['ctrl', 'shift'], label: 'Ctrl+Shift+9' } },
+    { slotNumber: 1, toggle: { key: '1', modifiers: ['ctrl'], label: `${modifierSymbol}+1` }, reset: { key: '1', modifiers: ['ctrl', 'shift'], label: `${modifierSymbol}+Shift+1` } },
+    { slotNumber: 2, toggle: { key: '2', modifiers: ['ctrl'], label: `${modifierSymbol}+2` }, reset: { key: '2', modifiers: ['ctrl', 'shift'], label: `${modifierSymbol}+Shift+2` } },
+    { slotNumber: 3, toggle: { key: '3', modifiers: ['ctrl'], label: `${modifierSymbol}+3` }, reset: { key: '3', modifiers: ['ctrl', 'shift'], label: `${modifierSymbol}+Shift+3` } },
+    { slotNumber: 4, toggle: { key: '4', modifiers: ['ctrl'], label: `${modifierSymbol}+4` }, reset: { key: '4', modifiers: ['ctrl', 'shift'], label: `${modifierSymbol}+Shift+4` } },
+    { slotNumber: 5, toggle: { key: '5', modifiers: ['ctrl'], label: `${modifierSymbol}+5` }, reset: { key: '5', modifiers: ['ctrl', 'shift'], label: `${modifierSymbol}+Shift+5` } },
+    { slotNumber: 6, toggle: { key: '6', modifiers: ['ctrl'], label: `${modifierSymbol}+6` }, reset: { key: '6', modifiers: ['ctrl', 'shift'], label: `${modifierSymbol}+Shift+6` } },
+    { slotNumber: 7, toggle: { key: '7', modifiers: ['ctrl'], label: `${modifierSymbol}+7` }, reset: { key: '7', modifiers: ['ctrl', 'shift'], label: `${modifierSymbol}+Shift+7` } },
+    { slotNumber: 8, toggle: { key: '8', modifiers: ['ctrl'], label: `${modifierSymbol}+8` }, reset: { key: '8', modifiers: ['ctrl', 'shift'], label: `${modifierSymbol}+Shift+8` } },
+    { slotNumber: 9, toggle: { key: '9', modifiers: ['ctrl'], label: `${modifierSymbol}+9` }, reset: { key: '9', modifiers: ['ctrl', 'shift'], label: `${modifierSymbol}+Shift+9` } },
   ],
   selectedTimer: {
-    toggle: { key: ' ', modifiers: ['ctrl'], label: 'Ctrl+Space' },
-    reset: { key: 'r', modifiers: ['ctrl'], label: 'Ctrl+R' }
+    toggle: { key: ' ', modifiers: ['ctrl'], label: `${modifierSymbol}+Space` },
+    reset: { key: 'r', modifiers: ['ctrl'], label: `${modifierSymbol}+R` }
   }
-};
+});
 
 const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds, opacity, onOpacityChange }) => {
-  const [localKeybinds, setLocalKeybinds] = useState(keybinds || DEFAULT_KEYBINDS);
+  const modifierSymbol = getModifierKey();
+  const defaultKeybinds = generateDefaultKeybinds(modifierSymbol);
+  const [localKeybinds, setLocalKeybinds] = useState(keybinds || defaultKeybinds);
   const [localOpacity, setLocalOpacity] = useState(opacity || 0.85);
 
   useEffect(() => {
-    if (keybinds) {
+    if (keybinds && defaultKeybinds) {
       // Migrate old F-key bindings to new Ctrl-based bindings
       const migratedKeybinds = { ...keybinds };
       let needsMigration = false;
 
       // Check timer slots for F1-F9 keys
       migratedKeybinds.timerSlots = keybinds.timerSlots.map((slot, index) => {
-        const defaultSlot = DEFAULT_KEYBINDS.timerSlots[index];
+        const defaultSlot = defaultKeybinds.timerSlots[index];
         if (!defaultSlot) return slot;
 
         const migratedSlot = { ...slot };
@@ -56,7 +59,7 @@ const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds, opacity, onO
           migratedKeybinds.selectedTimer.reset &&
           migratedKeybinds.selectedTimer.reset.modifiers &&
           migratedKeybinds.selectedTimer.reset.modifiers.length === 0) {
-        migratedKeybinds.selectedTimer.reset = DEFAULT_KEYBINDS.selectedTimer.reset;
+        migratedKeybinds.selectedTimer.reset = defaultKeybinds.selectedTimer.reset;
         needsMigration = true;
       }
 
@@ -67,7 +70,7 @@ const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds, opacity, onO
         onSaveKeybinds(migratedKeybinds);
       }
     }
-  }, [keybinds]);
+  }, [keybinds, defaultKeybinds]);
 
   useEffect(() => {
     if (opacity !== undefined) {
@@ -109,7 +112,9 @@ const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds, opacity, onO
   };
 
   const handleRestoreDefaults = () => {
-    setLocalKeybinds(DEFAULT_KEYBINDS);
+    if (defaultKeybinds) {
+      setLocalKeybinds(defaultKeybinds);
+    }
     setLocalOpacity(0.85);
   };
 
@@ -220,5 +225,5 @@ const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds, opacity, onO
   );
 };
 
-export { DEFAULT_KEYBINDS };
+export { generateDefaultKeybinds };
 export default SettingsPanel;

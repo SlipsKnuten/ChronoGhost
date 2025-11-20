@@ -4,8 +4,9 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import WindowControls from './components/WindowControls';
 import TimerCard from './components/TimerCard';
-import SettingsPanel, { DEFAULT_KEYBINDS } from './components/SettingsPanel';
+import SettingsPanel, { generateDefaultKeybinds } from './components/SettingsPanel';
 import Toast from './components/Toast';
+import { getModifierKey } from './utils/platform';
 
 const STORAGE_KEY = 'chronoghost-timers';
 
@@ -15,7 +16,7 @@ function App() {
   const [timers, setTimers] = useState([]);
   const [selectedTimerId, setSelectedTimerId] = useState(null);
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
-  const [keybinds, setKeybinds] = useState(DEFAULT_KEYBINDS);
+  const [keybinds, setKeybinds] = useState(null);
   const [opacity, setOpacity] = useState(0.85);
   const [isPinned, setIsPinned] = useState(false);
   const [isToolbarCollapsed, setIsToolbarCollapsed] = useState(false);
@@ -99,7 +100,34 @@ function App() {
     };
   }, []);
 
-  // Load timers and keybinds from localStorage on mount
+  // Initialize platform-specific keybinds on mount
+  useEffect(() => {
+    const symbol = getModifierKey();
+    const defaults = generateDefaultKeybinds(symbol);
+
+    // Try to load saved data from localStorage
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const data = JSON.parse(saved);
+
+        // Load keybinds (use saved if available, otherwise use platform defaults)
+        if (data.keybinds) {
+          setKeybinds(data.keybinds);
+        } else {
+          setKeybinds(defaults);
+        }
+      } else {
+        // No saved data, use platform defaults
+        setKeybinds(defaults);
+      }
+    } catch (error) {
+      // If loading fails, use platform defaults
+      setKeybinds(defaults);
+    }
+  }, []);
+
+  // Load timers and settings from localStorage on mount
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
@@ -115,11 +143,6 @@ function App() {
           const defaultTimer = createDefaultTimer(1);
           setTimers([defaultTimer]);
           setSelectedTimerId(defaultTimer.id);
-        }
-
-        // Load keybinds
-        if (data.keybinds) {
-          setKeybinds(data.keybinds);
         }
 
         // Load opacity
