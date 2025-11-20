@@ -45,6 +45,102 @@ fn minimize_window(window: tauri::Window) {
     window.minimize().unwrap();
 }
 
+#[tauri::command]
+fn set_ignore_cursor_events(window: tauri::Window, ignore: bool) -> Result<(), String> {
+    window.set_ignore_cursor_events(ignore)
+        .map_err(|e| format!("Failed to set ignore cursor events: {}", e))
+}
+
+#[cfg(target_os = "windows")]
+#[tauri::command]
+fn resize_window_native(window: tauri::Window, width: i32, height: i32) -> Result<(), String> {
+    use windows::Win32::Foundation::{HWND, RECT};
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SetWindowPos, GetWindowRect, GetClientRect,
+        SWP_NOMOVE, SWP_NOZORDER, SWP_NOACTIVATE, SWP_FRAMECHANGED,
+        HWND_TOP
+    };
+    use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
+
+    // Get native window handle
+    let hwnd = window.hwnd().map_err(|e| e.to_string())?;
+    let hwnd = HWND(hwnd.0 as *mut core::ffi::c_void);
+
+    unsafe {
+        // Get current window rect BEFORE resize
+        let mut before_rect = RECT::default();
+        GetWindowRect(hwnd, &mut before_rect)
+            .map_err(|e| format!("GetWindowRect failed: {}", e))?;
+
+        println!("[DEBUG] BEFORE resize - Window rect: {}x{}",
+            before_rect.right - before_rect.left,
+            before_rect.bottom - before_rect.top);
+
+        // Get the actual visible window bounds (excluding invisible borders)
+        let mut dwm_rect = RECT::default();
+        let dwm_result = DwmGetWindowAttribute(
+            hwnd,
+            DWMWA_EXTENDED_FRAME_BOUNDS,
+            &mut dwm_rect as *mut _ as *mut _,
+            std::mem::size_of::<RECT>() as u32,
+        );
+
+        if dwm_result.is_ok() {
+            println!("[DEBUG] DWM visible bounds: {}x{}",
+                dwm_rect.right - dwm_rect.left,
+                dwm_rect.bottom - dwm_rect.top);
+        }
+
+        // Get client rect to calculate non-client area
+        let mut client_rect = RECT::default();
+        GetClientRect(hwnd, &mut client_rect)
+            .map_err(|e| format!("GetClientRect failed: {}", e))?;
+
+        // Calculate border compensation
+        let border_width = (before_rect.right - before_rect.left) - client_rect.right;
+        let border_height = (before_rect.bottom - before_rect.top) - client_rect.bottom;
+
+        println!("[DEBUG] Border compensation: {}x{}", border_width, border_height);
+        println!("[DEBUG] Requested size: {}x{}", width, height);
+
+        // Add border compensation to requested size
+        let final_width = width + border_width;
+        let final_height = height + border_height;
+
+        println!("[DEBUG] Final size (with borders): {}x{}", final_width, final_height);
+
+        // Use SetWindowPos with all necessary flags for transparent frameless windows
+        let result = SetWindowPos(
+            hwnd,
+            HWND_TOP,
+            0, 0,
+            final_width,
+            final_height,
+            SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED,
+        );
+
+        if let Err(e) = result {
+            return Err(format!("SetWindowPos failed: {}", e));
+        }
+
+        // Get window rect AFTER resize to verify
+        let mut after_rect = RECT::default();
+        GetWindowRect(hwnd, &mut after_rect).ok();
+
+        println!("[DEBUG] AFTER resize - Window rect: {}x{}",
+            after_rect.right - after_rect.left,
+            after_rect.bottom - after_rect.top);
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+#[tauri::command]
+fn resize_window_native(_window: tauri::Window, _width: i32, _height: i32) -> Result<(), String> {
+    Err("resize_window_native is only supported on Windows".to_string())
+}
+
 fn keybind_to_shortcut_string(keybind: &Keybind) -> String {
     let mut parts = Vec::new();
 
@@ -192,6 +288,14 @@ fn main() {
         .setup(|app| {
             let _window = app.get_webview_window("main").unwrap();
 
+            // Register Ctrl+Shift+L global hotkey for lock toggle
+            let app_handle = app.handle().clone();
+            let _ = app.global_shortcut().on_shortcut("Ctrl+Shift+L", move |_app, _shortcut, event| {
+                if event.state() == ShortcutState::Pressed {
+                    let _ = app_handle.emit("toggle-lock", ());
+                }
+            });
+
             Ok(())
         })
         .manage(AppState {
@@ -201,7 +305,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             close_app,
             minimize_window,
-            update_global_shortcuts
+            update_global_shortcuts,
+            set_ignore_cursor_events,
+            resize_window_native
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

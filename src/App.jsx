@@ -5,6 +5,8 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import WindowControls from './components/WindowControls';
 import TimerCard from './components/TimerCard';
 import SettingsPanel, { DEFAULT_KEYBINDS } from './components/SettingsPanel';
+import FloatingExpandButton from './components/FloatingExpandButton';
+import Toast from './components/Toast';
 
 const STORAGE_KEY = 'chronoghost-timers';
 
@@ -17,11 +19,16 @@ function App() {
   const [keybinds, setKeybinds] = useState(DEFAULT_KEYBINDS);
   const [opacity, setOpacity] = useState(0.85);
   const [isPinned, setIsPinned] = useState(false);
+  const [isToolbarCollapsed, setIsToolbarCollapsed] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
 
   // Refs to hold latest state for global shortcut event listener
   // This prevents the listener from re-registering on every state change
   const timersRef = useRef([]);
   const selectedTimerIdRef = useRef(null);
+  const lastToggleTimeRef = useRef(0);
+  const originalWindowSizeRef = useRef(null);
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -56,6 +63,9 @@ function App() {
         if (data.opacity !== undefined) {
           setOpacity(data.opacity);
         }
+
+        // Don't load toolbar collapsed state - always start expanded
+        // (locking will auto-collapse it anyway)
         return;
       }
     } catch (error) {
@@ -69,6 +79,7 @@ function App() {
   }, []);
 
   // Save to localStorage whenever timers, selection, keybinds, or opacity change
+  // Note: We don't save isToolbarCollapsed since locking auto-collapses it
   useEffect(() => {
     if (timers.length > 0) {
       try {
@@ -175,8 +186,78 @@ function App() {
     setOpacity(newOpacity);
   };
 
-  const handleTogglePin = () => {
-    setIsPinned(prev => !prev);
+  const handleTogglePin = async () => {
+    console.log('[DEBUG] handleTogglePin called, current isPinned:', isPinned);
+    const newPinnedState = !isPinned;
+    console.log('[DEBUG] Setting new pinned state to:', newPinnedState);
+    setIsPinned(newPinnedState);
+
+    // Auto-collapse toolbar when locking, auto-expand when unlocking
+    setIsToolbarCollapsed(newPinnedState);
+    console.log('[DEBUG] Setting toolbar collapsed to:', newPinnedState);
+
+    // Enable/disable click-through and resize window
+    try {
+      const window = await getCurrentWindow();
+      const TOOLBAR_WIDTH = 90;
+
+      if (newPinnedState) {
+        // Locking - shrink window
+        const size = await window.innerSize();
+        originalWindowSizeRef.current = { width: size.width, height: size.height };
+        await invoke('resize_window_native', {
+          window,
+          width: size.width - TOOLBAR_WIDTH,
+          height: size.height
+        });
+        console.log('[DEBUG] Window shrunk by', TOOLBAR_WIDTH, 'px using native API');
+      } else {
+        // Unlocking - restore window
+        if (originalWindowSizeRef.current) {
+          await invoke('resize_window_native', {
+            window,
+            width: originalWindowSizeRef.current.width,
+            height: originalWindowSizeRef.current.height
+          });
+          console.log('[DEBUG] Window restored to original size:', originalWindowSizeRef.current);
+        }
+      }
+
+      await invoke('set_ignore_cursor_events', {
+        window,
+        ignore: newPinnedState
+      });
+      console.log('[DEBUG] Click-through set to:', newPinnedState);
+
+      // Show toast notification
+      setToastMessage(newPinnedState ? '🔒 Locked (Click-through enabled)' : '🔓 Unlocked');
+      setToastVisible(true);
+    } catch (error) {
+      console.error('Failed to set click-through or resize:', error);
+    }
+  };
+
+  const handleToggleToolbar = () => {
+    // Only allow manual collapse/expand when NOT pinned
+    if (!isPinned) {
+      setIsToolbarCollapsed(prev => !prev);
+    }
+  };
+
+  const handleExpandToolbar = () => {
+    // Floating button only expands toolbar, doesn't unlock
+    if (!isPinned) {
+      setIsToolbarCollapsed(false);
+    }
+  };
+
+  const showToast = (message) => {
+    setToastMessage(message);
+    setToastVisible(true);
+  };
+
+  const dismissToast = () => {
+    setToastVisible(false);
   };
 
   // Helper function to check if event matches a keybind
@@ -341,6 +422,95 @@ function App() {
     };
   }, [updateTimer, selectTimer]); // Only re-register if callbacks change (which they don't)
 
+  // Listen for Ctrl+Shift+L global hotkey from Rust
+  useEffect(() => {
+    let unlisten;
+
+    const setupListener = async () => {
+      try {
+        unlisten = await listen('toggle-lock', async () => {
+          console.log('[DEBUG] Global hotkey (Ctrl+Shift+L) triggered');
+
+          // Debounce: Ignore events within 300ms of the last toggle
+          const now = Date.now();
+          const timeSinceLastToggle = now - lastToggleTimeRef.current;
+          console.log('[DEBUG] Time since last toggle:', timeSinceLastToggle, 'ms');
+
+          if (timeSinceLastToggle < 300) {
+            console.log('[DEBUG] Ignoring duplicate hotkey event (debounced)');
+            return;
+          }
+
+          lastToggleTimeRef.current = now;
+
+          // Toggle pin state and handle click-through
+          setIsPinned(prev => {
+            console.log('[DEBUG] Global hotkey - previous isPinned:', prev);
+            const newPinnedState = !prev;
+            console.log('[DEBUG] Global hotkey - new isPinned:', newPinnedState);
+
+            // Auto-collapse toolbar when locking, auto-expand when unlocking
+            setIsToolbarCollapsed(newPinnedState);
+            console.log('[DEBUG] Global hotkey - setting toolbar collapsed to:', newPinnedState);
+
+            // Handle click-through and resize in async IIFE to avoid blocking state update
+            (async () => {
+              try {
+                const window = await getCurrentWindow();
+                const TOOLBAR_WIDTH = 90;
+
+                if (newPinnedState) {
+                  // Locking - shrink window
+                  const size = await window.innerSize();
+                  originalWindowSizeRef.current = { width: size.width, height: size.height };
+                  await invoke('resize_window_native', {
+                    window,
+                    width: size.width - TOOLBAR_WIDTH,
+                    height: size.height
+                  });
+                  console.log('[DEBUG] Global hotkey - window shrunk by', TOOLBAR_WIDTH, 'px');
+                } else {
+                  // Unlocking - restore window
+                  if (originalWindowSizeRef.current) {
+                    await invoke('resize_window_native', {
+                      window,
+                      width: originalWindowSizeRef.current.width,
+                      height: originalWindowSizeRef.current.height
+                    });
+                    console.log('[DEBUG] Global hotkey - window restored to:', originalWindowSizeRef.current);
+                  }
+                }
+
+                await invoke('set_ignore_cursor_events', {
+                  window,
+                  ignore: newPinnedState
+                });
+                console.log('[DEBUG] Global hotkey - click-through set to:', newPinnedState);
+
+                // Show toast notification
+                showToast(newPinnedState ? '🔒 Locked (Click-through enabled)' : '🔓 Unlocked');
+              } catch (error) {
+                console.error('Failed to set click-through or resize:', error);
+              }
+            })();
+
+            return newPinnedState;
+          });
+        });
+      } catch (err) {
+        console.error('Failed to setup toggle-lock listener:', err);
+      }
+    };
+
+    setupListener();
+
+    return () => {
+      if (unlisten) {
+        unlisten();
+      }
+    };
+  }, []); // Register once on mount - uses functional state updates
+
   // Manual drag handler for background-only dragging
   useEffect(() => {
     const handleMouseDown = async (e) => {
@@ -403,15 +573,23 @@ function App() {
   }, [isPinned]);
 
   return (
-    <div className={`app-container${isPinned ? ' pinned' : ''}`} style={{ opacity: opacity }}>
+    <div className={`app-container${isPinned ? ' pinned' : ''}${isToolbarCollapsed ? ' toolbar-collapsed' : ''}`} style={{ opacity: opacity }}>
       <WindowControls
         onSettingsClick={handleSettingsClick}
         onAddTimer={addTimer}
         isPinned={isPinned}
         onTogglePin={handleTogglePin}
+        onCollapseToolbar={handleToggleToolbar}
+        isCollapsed={isToolbarCollapsed}
       />
 
       <div className="timers-content">
+        {isToolbarCollapsed && (
+          <FloatingExpandButton
+            isPinned={isPinned}
+            onExpand={handleExpandToolbar}
+          />
+        )}
         <div className="timers-grid">
           {timers.map((timer, index) => (
             <TimerCard
@@ -441,6 +619,12 @@ function App() {
         onSaveKeybinds={handleSettingsSave}
         opacity={opacity}
         onOpacityChange={handleOpacityChange}
+      />
+
+      <Toast
+        message={toastMessage}
+        isVisible={toastVisible}
+        onDismiss={dismissToast}
       />
     </div>
   );

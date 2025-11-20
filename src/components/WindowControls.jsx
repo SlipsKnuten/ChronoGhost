@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import BlurText from './BlurText';
 
-const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin }) => {
+const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin, onCollapseToolbar, isCollapsed }) => {
   const appWindowRef = useRef(null);
 
   // Initialize Tauri window reference
@@ -101,8 +101,16 @@ const WindowControls = ({ onSettingsClick, onAddTimer, isPinned, onTogglePin }) 
   };
 
   return (
-    <div className="drag-handle">
+    <div className={`drag-handle${isCollapsed ? ' collapsed' : ''}`}>
       <div className="window-controls" role="group" aria-label="Window controls">
+        <button
+          className="window-control collapse-toolbar"
+          type="button"
+          onClick={onCollapseToolbar}
+          aria-label="Collapse Toolbar"
+        >
+          ◀
+        </button>
         <button
           className="window-control add-timer"
           type="button"

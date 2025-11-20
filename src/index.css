@@ -57,10 +57,19 @@ body {
   gap: 12px;
   padding: 12px 8px;
   background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
   border-right: 1px solid var(--glass-border);
   -webkit-app-region: drag;
   app-region: drag;
   z-index: 999;
+  transition: transform 0.3s ease;
+  transform: translateX(0);
+}
+
+/* Slide toolbar off-screen when collapsed */
+.drag-handle.collapsed {
+  transform: translateX(-100%);
 }
 
 .drag-handle .label {
@@ -305,9 +314,6 @@ body {
   height: 100%;
   display: flex;
   flex-direction: row;
-  background: var(--glass);
-  backdrop-filter: var(--backdrop-blur);
-  -webkit-backdrop-filter: var(--backdrop-blur);
   overflow: hidden;
 }
 
@@ -317,6 +323,9 @@ body {
   flex-direction: column;
   overflow: hidden;
   padding-left: clamp(60px, 8vw, 80px);
+  background: var(--glass);
+  backdrop-filter: var(--backdrop-blur);
+  -webkit-backdrop-filter: var(--backdrop-blur);
 }
 
 .drag-bar {
@@ -365,15 +374,10 @@ body {
   padding: clamp(8px, 1.5vh, 12px);
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: thin;
   flex: 1;
   align-content: flex-start;
   -webkit-app-region: no-drag;
   app-region: no-drag;
-}
-
-.timers-grid::-webkit-scrollbar {
-  display: none;
 }
 
 .timer-card {
@@ -388,7 +392,8 @@ body {
   flex-direction: column;
   gap: clamp(4px, 1vh, 6px);
   min-width: 200px;
-  flex: 1 1 auto;
+  max-width: 200px;
+  flex: 0 0 auto;
   -webkit-app-region: no-drag;
   app-region: no-drag;
 }
@@ -430,9 +435,9 @@ body {
   background: rgba(248, 250, 252, 0.08);
   border: 1px solid var(--glass-border);
   border-radius: var(--border-radius-sm);
-  padding: clamp(6px, 1.5vh, 10px) clamp(8px, 2vw, 12px);
-  font-size: clamp(0.85rem, 2.2vw, 1rem);
-  font-weight: 600;
+  padding: clamp(8px, 1.8vh, 12px) clamp(10px, 2vw, 14px);
+  font-size: clamp(1.05rem, 2.8vw, 1.3rem);
+  font-weight: 700;
   color: var(--text-primary);
   text-align: center;
   font-family: inherit;
@@ -514,21 +519,26 @@ body {
 
 /* Scrollbar styling */
 .timers-grid::-webkit-scrollbar {
-  width: 8px;
+  width: 4px;
 }
 
 .timers-grid::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  margin: 4px 0;
 }
 
 .timers-grid::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.25) 0%, rgba(248, 250, 252, 0.15) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  transition: background 200ms ease, border-color 200ms ease;
 }
 
 .timers-grid::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.35) 0%, rgba(248, 250, 252, 0.25) 100%);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 /* Settings button in window controls */
@@ -637,21 +647,26 @@ body {
 }
 
 .settings-content::-webkit-scrollbar {
-  width: 8px;
+  width: 4px;
 }
 
 .settings-content::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  margin: 4px 0;
 }
 
 .settings-content::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.25) 0%, rgba(248, 250, 252, 0.15) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  transition: background 200ms ease, border-color 200ms ease;
 }
 
 .settings-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.35) 0%, rgba(248, 250, 252, 0.25) 100%);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .settings-section {
@@ -915,4 +930,113 @@ body {
 .opacity-slider:focus {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Collapse toolbar button */
+.window-control.collapse-toolbar {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.window-control.collapse-toolbar:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Floating expand button (appears when toolbar is collapsed) */
+.floating-expand-btn {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  z-index: 100;
+  transition: all 200ms ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--glass-border);
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+.floating-expand-btn.locked {
+  background: rgba(239, 68, 68, 0.3);
+  color: var(--text-primary);
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+  cursor: not-allowed;
+}
+
+.floating-expand-btn.locked:hover {
+  background: rgba(239, 68, 68, 0.4);
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.6);
+  transform: scale(1.05);
+}
+
+.floating-expand-btn.unlocked {
+  background: rgba(16, 185, 129, 0.3);
+  color: var(--text-primary);
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+  cursor: pointer;
+}
+
+.floating-expand-btn.unlocked:hover {
+  background: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.5);
+  transform: scale(1.1);
+}
+
+.floating-expand-btn.unlocked:active {
+  transform: scale(0.95);
+}
+
+/* Adjust timers-content padding when toolbar is collapsed */
+.app-container.toolbar-collapsed .timers-content {
+  padding-left: 0;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* Make timers-content relative so floating button can be positioned */
+.timers-content {
+  position: relative;
+}
+
+/* Toast notification */
+.toast {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-20px);
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--border-radius-sm);
+  padding: 12px 24px;
+  color: var(--text-primary);
+  font-size: clamp(0.9rem, 2vw, 1rem);
+  font-weight: 600;
+  z-index: 10000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease, transform 200ms ease;
+  white-space: nowrap;
+}
+
+.toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: all;
 }
