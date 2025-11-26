@@ -1,0 +1,287 @@
+name: Tauri Multi-Platform Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., mk2, mk3)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: tauri-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundle-path: target/x86_64-pc-windows-msvc/release/bundle
+            updater-target: windows-x86_64
+            artifacts: |
+              target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe
+              target/x86_64-pc-windows-msvc/release/bundle/nsis/*.exe.sig
+              target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+              target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi.sig
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            bundle-path: target/aarch64-apple-darwin/release/bundle
+            updater-target: darwin-aarch64
+            artifacts: |
+              target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+              target/aarch64-apple-darwin/release/bundle/macos/*.app
+              target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
+              target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
+          - platform: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            bundle-path: target/x86_64-unknown-linux-gnu/release/bundle
+            updater-target: linux-x86_64
+            artifacts: |
+              target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+              target/x86_64-unknown-linux-gnu/release/bundle/rpm/*.rpm
+              target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
+              target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage.sig
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update version in tauri.conf.json
+        run: |
+          # Extract number from mk prefix (e.g., mk2 -> 2)
+          VERSION_NUM=$(echo "${{ github.event.inputs.version }}" | sed 's/mk//')
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION_NUM.0.0\"/" tauri.conf.json
+          else
+            sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION_NUM.0.0\"/" tauri.conf.json 2>/dev/null || sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION_NUM.0.0\"/" tauri.conf.json
+          fi
+        shell: bash
+
+      - name: Generate macOS ICNS (macOS only)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          # Generate ICNS from PNG for macOS
+          mkdir -p icons/icon.iconset
+          sips -z 16 16     icons/icon.png --out icons/icon.iconset/icon_16x16.png
+          sips -z 32 32     icons/icon.png --out icons/icon.iconset/icon_16x16@2x.png
+          sips -z 32 32     icons/icon.png --out icons/icon.iconset/icon_32x32.png
+          sips -z 64 64     icons/icon.png --out icons/icon.iconset/icon_32x32@2x.png
+          sips -z 128 128   icons/icon.png --out icons/icon.iconset/icon_128x128.png
+          sips -z 256 256   icons/128x128@2x.png --out icons/icon.iconset/icon_128x128@2x.png
+          sips -z 256 256   icons/128x128@2x.png --out icons/icon.iconset/icon_256x256.png
+          sips -z 512 512   icons/icon@2x.png --out icons/icon.iconset/icon_256x256@2x.png
+          sips -z 512 512   icons/icon@2x.png --out icons/icon.iconset/icon_512x512.png
+          cp icons/icon@2x.png icons/icon.iconset/icon_512x512@2x.png
+          iconutil -c icns icons/icon.iconset -o icons/icon.icns
+          rm -rf icons/icon.iconset
+        shell: bash
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+          cache-on-failure: true
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install Tauri CLI (precompiled)
+        run: cargo binstall tauri-cli --version ^2 --no-confirm
+
+      - name: Build release bundle
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: cargo tauri build --target ${{ matrix.target }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-bundle
+          if-no-files-found: error
+          path: ${{ matrix.artifacts }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display artifact structure
+        run: ls -R artifacts
+
+      - name: Flatten artifacts and prepare release files
+        run: |
+          mkdir -p release-files
+          TAG="${{ github.event.inputs.version }}"
+          VERSION_NUM=$(echo "$TAG" | sed 's/mk//')
+
+          # Copy regular files (exe, msi, dmg, deb, rpm, AppImage) and their signatures
+          find artifacts -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" -o -name "*.sig" -o -name "*.tar.gz" \) -exec cp {} release-files/ \;
+
+          # Copy .app bundles (directories) and create tarballs
+          find artifacts -type d -name "*.app" | while read app; do
+            appname=$(basename "$app" .app)
+            tar -czf "release-files/${appname}.app.tar.gz" -C "$(dirname "$app")" "$(basename "$app")"
+          done
+
+          ls -lh release-files/
+
+      - name: Generate latest.json for auto-updater
+        run: |
+          TAG="${{ github.event.inputs.version }}"
+          VERSION_NUM=$(echo "$TAG" | sed 's/mk//')
+          VERSION="${VERSION_NUM}.0.0"
+          REPO="slipsknuten/chronoghost"
+          BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+          DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Find the update artifacts and their signatures
+          cd release-files
+
+          # Windows - NSIS exe (preferred for updates)
+          WIN_EXE=$(ls *.exe 2>/dev/null | grep -v '.sig' | head -1 || echo "")
+          WIN_SIG=""
+          if [ -n "$WIN_EXE" ] && [ -f "${WIN_EXE}.sig" ]; then
+            WIN_SIG=$(cat "${WIN_EXE}.sig")
+          fi
+
+          # macOS - .app.tar.gz
+          MAC_TAR=$(ls *.app.tar.gz 2>/dev/null | grep -v '.sig' | head -1 || echo "")
+          MAC_SIG=""
+          if [ -n "$MAC_TAR" ] && [ -f "${MAC_TAR}.sig" ]; then
+            MAC_SIG=$(cat "${MAC_TAR}.sig")
+          fi
+
+          # Linux - AppImage
+          LINUX_APP=$(ls *.AppImage 2>/dev/null | grep -v '.sig' | head -1 || echo "")
+          LINUX_SIG=""
+          if [ -n "$LINUX_APP" ] && [ -f "${LINUX_APP}.sig" ]; then
+            LINUX_SIG=$(cat "${LINUX_APP}.sig")
+          fi
+
+          cd ..
+
+          # Build the JSON
+          cat > release-files/latest.json << EOF
+          {
+            "version": "${VERSION}",
+            "notes": "ChronoGhost ${TAG} - See release notes for details",
+            "pub_date": "${DATE}",
+            "platforms": {
+          EOF
+
+          FIRST=true
+
+          # Add Windows if available
+          if [ -n "$WIN_EXE" ] && [ -n "$WIN_SIG" ]; then
+            if [ "$FIRST" = false ]; then echo "," >> release-files/latest.json; fi
+            cat >> release-files/latest.json << EOF
+              "windows-x86_64": {
+                "url": "${BASE_URL}/${WIN_EXE}",
+                "signature": "${WIN_SIG}"
+              }
+          EOF
+            FIRST=false
+          fi
+
+          # Add macOS if available
+          if [ -n "$MAC_TAR" ] && [ -n "$MAC_SIG" ]; then
+            if [ "$FIRST" = false ]; then echo "," >> release-files/latest.json; fi
+            cat >> release-files/latest.json << EOF
+              "darwin-aarch64": {
+                "url": "${BASE_URL}/${MAC_TAR}",
+                "signature": "${MAC_SIG}"
+              }
+          EOF
+            FIRST=false
+          fi
+
+          # Add Linux if available
+          if [ -n "$LINUX_APP" ] && [ -n "$LINUX_SIG" ]; then
+            if [ "$FIRST" = false ]; then echo "," >> release-files/latest.json; fi
+            cat >> release-files/latest.json << EOF
+              "linux-x86_64": {
+                "url": "${BASE_URL}/${LINUX_APP}",
+                "signature": "${LINUX_SIG}"
+              }
+          EOF
+          fi
+
+          cat >> release-files/latest.json << EOF
+            }
+          }
+          EOF
+
+          echo "Generated latest.json:"
+          cat release-files/latest.json
+
+      - name: Create versioned release
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.event.inputs.version }}
+          name: "ChronoGhost ${{ github.event.inputs.version }}"
+          body: |
+            ## ChronoGhost ${{ github.event.inputs.version }}
+
+            Automated multi-platform build from commit ${{ github.sha }}.
+
+            **Platforms:**
+            - Windows (x64): .exe installer, .msi installer
+            - macOS (Apple Silicon): .dmg, .app
+            - Linux (x64): .deb, .AppImage
+
+            **Auto-Update:** This release supports automatic updates for installed apps.
+
+            ### Changes
+            See commit history for details.
+          draft: false
+          prerelease: false
+          makeLatest: true
+          artifacts: "release-files/*"
+          allowUpdates: true
+          artifactErrorsFailBuild: true
