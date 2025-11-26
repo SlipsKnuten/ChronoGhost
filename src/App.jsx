@@ -12,8 +12,6 @@ import { getModifierKey } from './utils/platform';
 const STORAGE_KEY = 'chronoghost-timers';
 
 function App() {
-  console.log('[DEBUG] App component loaded at:', new Date().toISOString());
-
   const [timers, setTimers] = useState([]);
   const [selectedTimerId, setSelectedTimerId] = useState(null);
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
@@ -30,10 +28,11 @@ function App() {
   const timersRef = useRef([]);
   const selectedTimerIdRef = useRef(null);
   const lastToggleTimeRef = useRef(0);
-  const originalWindowSizeRef = useRef(null);
   const toolbarRef = useRef(null);
   const toolbarWidthRef = useRef(80); // Store measured width in ref for immediate access
   const [toolbarWidth, setToolbarWidth] = useState(80); // Default fallback, will be measured
+  const calculateAndResizeWindowRef = useRef(null); // Ref for resize function (used in event listeners)
+  const hasInitialResizeRef = useRef(false); // Track if initial resize has been done
 
   // Keep refs in sync with state
   useEffect(() => {
@@ -61,26 +60,6 @@ function App() {
 
         toolbarWidthRef.current = physicalWidth; // Store in ref for immediate access
         setToolbarWidth(physicalWidth);
-        console.log('[DEBUG] Measured toolbar - CSS width:', Math.round(cssWidth), 'px, DPR:', dpr, ', Base:', baseWidth, 'px, Final:', physicalWidth, 'px');
-
-        // Debug: Measure window and content dimensions
-        const windowInstance = await getCurrentWindow();
-        const windowSize = await windowInstance.innerSize();
-        console.log('[DEBUG] Window dimensions:');
-        console.log('  - Physical pixels:', windowSize.width, 'x', windowSize.height);
-        console.log('  - CSS pixels (window.inner):', window.innerWidth, 'x', window.innerHeight);
-        console.log('  - CSS pixels (document.client):', document.documentElement.clientWidth, 'x', document.documentElement.clientHeight);
-
-        // Measure timers-grid element
-        const timersGrid = document.querySelector('.timers-grid');
-        if (timersGrid) {
-          const gridRect = timersGrid.getBoundingClientRect();
-          console.log('[DEBUG] Timers grid:');
-          console.log('  - clientHeight (visible):', timersGrid.clientHeight, 'px');
-          console.log('  - scrollHeight (content):', timersGrid.scrollHeight, 'px');
-          console.log('  - Overflow:', timersGrid.scrollHeight > timersGrid.clientHeight ? 'YES (scrollbar needed)' : 'NO');
-          console.log('  - Actual rect:', Math.round(gridRect.width), 'x', Math.round(gridRect.height));
-        }
       }
     };
 
@@ -204,6 +183,65 @@ function App() {
     updateRustShortcuts();
   }, [keybinds]);
 
+  // Calculate and apply window width based on timer count and toolbar state
+  const calculateAndResizeWindow = useCallback(async (timerCount, isCollapsed = isToolbarCollapsed) => {
+    try {
+      const windowInstance = await getCurrentWindow();
+      const dpr = window.devicePixelRatio || 1;
+
+      // CSS dimensions (in CSS pixels)
+      const cardWidth = 200;
+      const gap = 11;
+      const gridPaddingLeft = 10;
+      const gridPaddingRight = 10;
+
+      // Get current window size (to preserve height)
+      const size = await windowInstance.innerSize();
+
+      // Single row - all timers horizontal
+      const contentWidth = gridPaddingLeft +
+                           (timerCount * cardWidth) +
+                           (Math.max(0, timerCount - 1) * gap) +
+                           gridPaddingRight;
+
+      // Toolbar width is already in physical pixels (from toolbarWidthRef)
+      // Content needs conversion from CSS to physical pixels
+      const toolbarContribution = isCollapsed ? 0 : toolbarWidthRef.current;
+      const contentPhysical = Math.round(contentWidth * dpr);
+      const totalWidth = toolbarContribution + contentPhysical;
+
+      // Clamp to min/max bounds from tauri.conf.json (scaled by DPI since we're in physical pixels)
+      const minWidth = Math.round(291 * dpr);
+      const maxWidth = Math.round(1920 * dpr);
+      const clampedWidth = Math.max(minWidth, Math.min(maxWidth, totalWidth));
+
+      await invoke('resize_window_native', {
+        window: windowInstance,
+        width: clampedWidth,
+        height: size.height
+      });
+    } catch (error) {
+      // Silent fail
+    }
+  }, [isToolbarCollapsed]);
+
+  // Keep the resize function ref updated for use in event listeners
+  useEffect(() => {
+    calculateAndResizeWindowRef.current = calculateAndResizeWindow;
+  }, [calculateAndResizeWindow]);
+
+  // Initial resize on load - resize window to fit saved timers
+  useEffect(() => {
+    if (!hasInitialResizeRef.current && timers.length > 0 && toolbarWidthRef.current > 0) {
+      hasInitialResizeRef.current = true;
+      // Delay to ensure toolbar is measured and DOM is fully rendered
+      const resizeTimer = setTimeout(() => {
+        calculateAndResizeWindow(timers.length);
+      }, 200);
+      return () => clearTimeout(resizeTimer);
+    }
+  }, [timers.length, calculateAndResizeWindow]);
+
   const createDefaultTimer = (number) => ({
     id: Date.now() + number,
     name: `Timer ${number}`,
@@ -240,9 +278,16 @@ function App() {
     }
 
     const newTimer = createDefaultTimer(newNumber);
-    setTimers(prev => [...prev, newTimer]);
+    setTimers(prev => {
+      const newTimers = [...prev, newTimer];
+      // Resize window after adding timer
+      setTimeout(() => {
+        calculateAndResizeWindow(newTimers.length);
+      }, 0);
+      return newTimers;
+    });
     setSelectedTimerId(newTimer.id);
-  }, [timers]);
+  }, [timers, calculateAndResizeWindow]);
 
   const removeTimer = useCallback((id) => {
     // Prevent removing the last timer
@@ -256,9 +301,13 @@ function App() {
       if (selectedTimerId === id && newTimers.length > 0) {
         setSelectedTimerId(newTimers[0].id);
       }
+      // Resize window after removing timer
+      setTimeout(() => {
+        calculateAndResizeWindow(newTimers.length);
+      }, 0);
       return newTimers;
     });
-  }, [timers.length, selectedTimerId]);
+  }, [timers.length, selectedTimerId, calculateAndResizeWindow]);
 
   const selectTimer = useCallback((id) => {
     setSelectedTimerId(id);
@@ -285,9 +334,7 @@ function App() {
   };
 
   const handleTogglePin = async () => {
-    console.log('[DEBUG] handleTogglePin called, current isPinned:', isPinned);
     const newPinnedState = !isPinned;
-    console.log('[DEBUG] Setting new pinned state to:', newPinnedState);
     setIsPinned(newPinnedState);
 
     // Show toast notification (toolbar button doesn't enable click-through)
@@ -301,35 +348,8 @@ function App() {
       const newCollapsedState = !isToolbarCollapsed;
       setIsToolbarCollapsed(newCollapsedState);
 
-      // Resize window when collapsing/expanding (like lock, but without click-through)
-      try {
-        const window = await getCurrentWindow();
-
-        if (newCollapsedState) {
-          // Collapsing - shrink window by toolbar width
-          const size = await window.innerSize();
-          const shrinkBy = toolbarWidthRef.current;
-          originalWindowSizeRef.current = { width: size.width, height: size.height };
-          await invoke('resize_window_native', {
-            window,
-            width: size.width - shrinkBy,
-            height: size.height
-          });
-          console.log('[DEBUG] Collapsed toolbar - window shrunk by', shrinkBy, 'px');
-        } else {
-          // Expanding - restore original window size
-          if (originalWindowSizeRef.current) {
-            await invoke('resize_window_native', {
-              window,
-              width: originalWindowSizeRef.current.width,
-              height: originalWindowSizeRef.current.height
-            });
-            console.log('[DEBUG] Expanded toolbar - window restored to:', originalWindowSizeRef.current);
-          }
-        }
-      } catch (error) {
-        console.error('[DEBUG] Failed to resize window on collapse/expand:', error);
-      }
+      // Resize window based on timer count and new collapsed state
+      await calculateAndResizeWindow(timers.length, newCollapsedState);
     }
   };
 
@@ -338,20 +358,8 @@ function App() {
     if (!isPinned) {
       setIsToolbarCollapsed(false);
 
-      // Restore window size when expanding
-      try {
-        const window = await getCurrentWindow();
-        if (originalWindowSizeRef.current) {
-          await invoke('resize_window_native', {
-            window,
-            width: originalWindowSizeRef.current.width,
-            height: originalWindowSizeRef.current.height
-          });
-          console.log('[DEBUG] Expanded toolbar (via button) - window restored to:', originalWindowSizeRef.current);
-        }
-      } catch (error) {
-        console.error('[DEBUG] Failed to resize window on expand:', error);
-      }
+      // Resize window with toolbar visible
+      await calculateAndResizeWindow(timers.length, false);
     }
   };
 
@@ -533,15 +541,11 @@ function App() {
     const setupListener = async () => {
       try {
         unlisten = await listen('toggle-lock', async () => {
-          console.log('[DEBUG] Global hotkey (Ctrl+Shift+L) triggered');
-
           // Debounce: Ignore events within 300ms of the last toggle
           const now = Date.now();
           const timeSinceLastToggle = now - lastToggleTimeRef.current;
-          console.log('[DEBUG] Time since last toggle:', timeSinceLastToggle, 'ms');
 
           if (timeSinceLastToggle < 300) {
-            console.log('[DEBUG] Ignoring duplicate hotkey event (debounced)');
             return;
           }
 
@@ -549,52 +553,30 @@ function App() {
 
           // Toggle pin state and handle click-through
           setIsPinned(prev => {
-            console.log('[DEBUG] Global hotkey - previous isPinned:', prev);
             const newPinnedState = !prev;
-            console.log('[DEBUG] Global hotkey - new isPinned:', newPinnedState);
 
             // Auto-collapse toolbar when locking, auto-expand when unlocking
             setIsToolbarCollapsed(newPinnedState);
-            console.log('[DEBUG] Global hotkey - setting toolbar collapsed to:', newPinnedState);
 
             // Handle click-through and resize in async IIFE to avoid blocking state update
             (async () => {
               try {
                 const window = await getCurrentWindow();
 
-                if (newPinnedState) {
-                  // Locking - shrink window by measured toolbar width (use ref for latest value)
-                  const size = await window.innerSize();
-                  const shrinkBy = toolbarWidthRef.current;
-                  originalWindowSizeRef.current = { width: size.width, height: size.height };
-                  await invoke('resize_window_native', {
-                    window,
-                    width: size.width - shrinkBy,
-                    height: size.height
-                  });
-                  console.log('[DEBUG] Global hotkey - window shrunk by', shrinkBy, 'px (measured)');
-                } else {
-                  // Unlocking - restore window
-                  if (originalWindowSizeRef.current) {
-                    await invoke('resize_window_native', {
-                      window,
-                      width: originalWindowSizeRef.current.width,
-                      height: originalWindowSizeRef.current.height
-                    });
-                    console.log('[DEBUG] Global hotkey - window restored to:', originalWindowSizeRef.current);
-                  }
+                // Use ref to get the latest resize function (handles timer count dynamically)
+                if (calculateAndResizeWindowRef.current) {
+                  await calculateAndResizeWindowRef.current(timersRef.current.length, newPinnedState);
                 }
 
                 await invoke('set_ignore_cursor_events', {
                   window,
                   ignore: newPinnedState
                 });
-                console.log('[DEBUG] Global hotkey - click-through set to:', newPinnedState);
 
                 // Show toast notification
                 showToast(newPinnedState ? '🔒 Locked (Click-through enabled)' : '🔓 Unlocked');
               } catch (error) {
-                console.error('Failed to set click-through or resize:', error);
+                // Silent fail
               }
             })();
 
@@ -602,7 +584,7 @@ function App() {
           });
         });
       } catch (err) {
-        console.error('Failed to setup toggle-lock listener:', err);
+        // Silent fail
       }
     };
 
@@ -658,31 +640,45 @@ function App() {
   // Sync window resizability with pin state
   useEffect(() => {
     const syncResizability = async () => {
-      console.log('[DEBUG] isPinned changed to:', isPinned);
-      console.log('[DEBUG] Setting window resizable to:', !isPinned);
-
       try {
         const window = await getCurrentWindow();
-        console.log('[DEBUG] Got window instance:', window);
-
         await window.setResizable(!isPinned);
-        console.log('[DEBUG] setResizable succeeded! Window is now', !isPinned ? 'resizable' : 'not resizable');
       } catch (error) {
-        console.error('[DEBUG] setResizable FAILED with error:', error);
-        console.error('[DEBUG] Error details:', error.message, error.stack);
+        // Silent fail
       }
     };
 
     syncResizability();
   }, [isPinned]);
 
-  // Disable right-click context menu
+  // Disable right-click context menu and DevTools shortcuts
   useEffect(() => {
     const disableContextMenu = (e) => e.preventDefault();
+
+    const disableDevTools = (e) => {
+      // F12
+      if (e.key === 'F12') {
+        e.preventDefault();
+        return;
+      }
+      // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C
+      if (e.ctrlKey && e.shiftKey && ['I', 'i', 'J', 'j', 'C', 'c'].includes(e.key)) {
+        e.preventDefault();
+        return;
+      }
+      // Ctrl+U (view source)
+      if (e.ctrlKey && (e.key === 'u' || e.key === 'U')) {
+        e.preventDefault();
+        return;
+      }
+    };
+
     window.addEventListener("contextmenu", disableContextMenu);
+    window.addEventListener("keydown", disableDevTools);
 
     return () => {
       window.removeEventListener("contextmenu", disableContextMenu);
+      window.removeEventListener("keydown", disableDevTools);
     };
   }, []);
 

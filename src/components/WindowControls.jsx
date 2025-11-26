@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef, forwardRef } from 'react';
-import BlurText from './BlurText';
+import React, { useEffect, useRef, forwardRef } from 'react';
 
 const WindowControls = forwardRef(({ onSettingsClick, onAddTimer, isPinned, onTogglePin, onCollapseToolbar, isCollapsed }, ref) => {
   const appWindowRef = useRef(null);

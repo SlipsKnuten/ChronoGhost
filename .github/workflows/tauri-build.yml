@@ -1,9 +1,12 @@
 name: Tauri Multi-Platform Build
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., mk2, mk3)'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -13,38 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.get_version.outputs.version }}
-      tag: ${{ steps.get_version.outputs.tag }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Get latest version
-        id: get_version
-        run: |
-          # Get the latest tag that matches v* pattern
-          LATEST_TAG=$(git tag -l "v*" | sort -V | tail -n1)
-
-          if [ -z "$LATEST_TAG" ]; then
-            # No tags exist, start with v1
-            NEW_VERSION=1
-          else
-            # Extract version number and increment
-            CURRENT_VERSION=${LATEST_TAG#v}
-            NEW_VERSION=$((CURRENT_VERSION + 1))
-          fi
-
-          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "Next version: v$NEW_VERSION"
-
   build:
-    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -83,11 +55,12 @@ jobs:
 
       - name: Update version in tauri.conf.json
         run: |
-          VERSION="${{ needs.version.outputs.version }}"
+          # Extract number from mk prefix (e.g., mk2 -> 2)
+          VERSION_NUM=$(echo "${{ github.event.inputs.version }}" | sed 's/mk//')
           if [ "$RUNNER_OS" == "Windows" ]; then
-            sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION.0.0\"/" tauri.conf.json
+            sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION_NUM.0.0\"/" tauri.conf.json
           else
-            sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION.0.0\"/" tauri.conf.json 2>/dev/null || sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION.0.0\"/" tauri.conf.json
+            sed -i '' "s/\"version\": \".*\"/\"version\": \"$VERSION_NUM.0.0\"/" tauri.conf.json 2>/dev/null || sed -i "s/\"version\": \".*\"/\"version\": \"$VERSION_NUM.0.0\"/" tauri.conf.json
           fi
         shell: bash
 
@@ -168,7 +141,7 @@ jobs:
           path: ${{ matrix.artifacts }}
 
   release:
-    needs: [version, build]
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Download all artifacts
@@ -182,8 +155,8 @@ jobs:
       - name: Flatten artifacts and prepare release files
         run: |
           mkdir -p release-files
-          VERSION="${{ needs.version.outputs.version }}"
-          TAG="${{ needs.version.outputs.tag }}"
+          TAG="${{ github.event.inputs.version }}"
+          VERSION_NUM=$(echo "$TAG" | sed 's/mk//')
 
           # Copy regular files (exe, msi, dmg, deb, AppImage) and their signatures
           find artifacts -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.sig" -o -name "*.tar.gz" \) -exec cp {} release-files/ \;
@@ -198,8 +171,9 @@ jobs:
 
       - name: Generate latest.json for auto-updater
         run: |
-          VERSION="${{ needs.version.outputs.version }}.0.0"
-          TAG="${{ needs.version.outputs.tag }}"
+          TAG="${{ github.event.inputs.version }}"
+          VERSION_NUM=$(echo "$TAG" | sed 's/mk//')
+          VERSION="${VERSION_NUM}.0.0"
           REPO="slipsknuten/chronoghost"
           BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
           DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
@@ -288,10 +262,10 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ needs.version.outputs.tag }}
-          name: "Release ${{ needs.version.outputs.tag }}"
+          tag: ${{ github.event.inputs.version }}
+          name: "ChronoGhost ${{ github.event.inputs.version }}"
           body: |
-            ## ChronoGhost ${{ needs.version.outputs.tag }}
+            ## ChronoGhost ${{ github.event.inputs.version }}
 
             Automated multi-platform build from commit ${{ github.sha }}.
 

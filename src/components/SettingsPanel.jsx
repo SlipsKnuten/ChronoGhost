@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import KeybindCapture from './KeybindCapture';
 import { getModifierKey } from '../utils/platform';
 
@@ -22,7 +22,7 @@ const generateDefaultKeybinds = (modifierSymbol) => ({
 
 const SettingsPanel = ({ isOpen, onClose, keybinds, onSaveKeybinds, opacity, onOpacityChange, muted, onMutedChange }) => {
   const modifierSymbol = getModifierKey();
-  const defaultKeybinds = generateDefaultKeybinds(modifierSymbol);
+  const defaultKeybinds = useMemo(() => generateDefaultKeybinds(modifierSymbol), [modifierSymbol]);
   const [localKeybinds, setLocalKeybinds] = useState(keybinds || defaultKeybinds);
   const [localOpacity, setLocalOpacity] = useState(opacity || 0.85);
   const [localMuted, setLocalMuted] = useState(muted || false);

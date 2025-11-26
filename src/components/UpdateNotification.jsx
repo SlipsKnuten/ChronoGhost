@@ -13,11 +13,10 @@ export default function UpdateNotification() {
       try {
         const available = await check();
         if (available) {
-          console.log('[Update] Found update:', available.version);
           setUpdate(available);
         }
       } catch (error) {
-        console.error('[Update] Check failed:', error);
+        // Silent fail
       }
     };
 
@@ -31,20 +30,13 @@ export default function UpdateNotification() {
       setStatus('downloading');
 
       await update.downloadAndInstall((event) => {
-        if (event.event === 'Started') {
-          console.log('[Update] Download started');
-        } else if (event.event === 'Progress') {
-          console.log('[Update] Download progress:', event.data.chunkLength);
-        } else if (event.event === 'Finished') {
-          console.log('[Update] Download finished');
+        if (event.event === 'Finished') {
           setStatus('installing');
         }
       });
 
-      console.log('[Update] Installing...');
       await relaunch();
     } catch (error) {
-      console.error('[Update] Failed:', error);
       setStatus('error');
     }
   };

@@ -1,6 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use tauri::{Manager, Emitter};
+use tauri::Emitter;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 use serde::Deserialize;
 use std::sync::Mutex;
@@ -60,7 +60,12 @@ fn resize_window_native(window: tauri::Window, width: i32, height: i32) -> Resul
         SWP_NOMOVE, SWP_NOZORDER, SWP_NOACTIVATE, SWP_FRAMECHANGED,
         HWND_TOP
     };
-    use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
+
+    // Enforce minimum size (matching tauri.conf.json)
+    let min_width = 291;
+    let min_height = 315;
+    let width = width.max(min_width);
+    let height = height.max(min_height);
 
     // Get native window handle
     let hwnd = window.hwnd().map_err(|e| e.to_string())?;
@@ -72,25 +77,6 @@ fn resize_window_native(window: tauri::Window, width: i32, height: i32) -> Resul
         GetWindowRect(hwnd, &mut before_rect)
             .map_err(|e| format!("GetWindowRect failed: {}", e))?;
 
-        println!("[DEBUG] BEFORE resize - Window rect: {}x{}",
-            before_rect.right - before_rect.left,
-            before_rect.bottom - before_rect.top);
-
-        // Get the actual visible window bounds (excluding invisible borders)
-        let mut dwm_rect = RECT::default();
-        let dwm_result = DwmGetWindowAttribute(
-            hwnd,
-            DWMWA_EXTENDED_FRAME_BOUNDS,
-            &mut dwm_rect as *mut _ as *mut _,
-            std::mem::size_of::<RECT>() as u32,
-        );
-
-        if dwm_result.is_ok() {
-            println!("[DEBUG] DWM visible bounds: {}x{}",
-                dwm_rect.right - dwm_rect.left,
-                dwm_rect.bottom - dwm_rect.top);
-        }
-
         // Get client rect to calculate non-client area
         let mut client_rect = RECT::default();
         GetClientRect(hwnd, &mut client_rect)
@@ -100,14 +86,9 @@ fn resize_window_native(window: tauri::Window, width: i32, height: i32) -> Resul
         let border_width = (before_rect.right - before_rect.left) - client_rect.right;
         let border_height = (before_rect.bottom - before_rect.top) - client_rect.bottom;
 
-        println!("[DEBUG] Border compensation: {}x{}", border_width, border_height);
-        println!("[DEBUG] Requested size: {}x{}", width, height);
-
         // Add border compensation to requested size
         let final_width = width + border_width;
         let final_height = height + border_height;
-
-        println!("[DEBUG] Final size (with borders): {}x{}", final_width, final_height);
 
         // Use SetWindowPos with all necessary flags for transparent frameless windows
         let result = SetWindowPos(
@@ -123,13 +104,6 @@ fn resize_window_native(window: tauri::Window, width: i32, height: i32) -> Resul
             return Err(format!("SetWindowPos failed: {}", e));
         }
 
-        // Get window rect AFTER resize to verify
-        let mut after_rect = RECT::default();
-        GetWindowRect(hwnd, &mut after_rect).ok();
-
-        println!("[DEBUG] AFTER resize - Window rect: {}x{}",
-            after_rect.right - after_rect.left,
-            after_rect.bottom - after_rect.top);
     }
 
     Ok(())
@@ -286,8 +260,6 @@ fn update_global_shortcuts(
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
-            let _window = app.get_webview_window("main").unwrap();
-
             // Register CommandOrControl+Shift+L global hotkey for lock toggle
             let app_handle = app.handle().clone();
             let _ = app.global_shortcut().on_shortcut("CommandOrControl+Shift+L", move |_app, _shortcut, event| {

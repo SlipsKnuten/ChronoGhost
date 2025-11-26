@@ -72,13 +72,6 @@ body {
   transform: translateX(-100%);
 }
 
-.drag-handle .label {
-  display: none;
-}
-
-.phantom-title {
-  display: none;
-}
 
 .window-controls {
   display: flex;
@@ -327,33 +320,18 @@ body {
 }
 
 .timers-content {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   padding-left: 70px;
   background: var(--glass);
   backdrop-filter: var(--backdrop-blur);
   -webkit-backdrop-filter: var(--backdrop-blur);
 }
 
-.drag-bar {
-  height: 6px;
-  width: 100%;
-  -webkit-app-region: drag;
-  app-region: drag;
-  cursor: grab;
-  flex-shrink: 0;
-  background: transparent;
-}
-
-.drag-bar:active {
-  cursor: grabbing;
-}
-
 /* Disable dragging when window is pinned/locked */
-.app-container.pinned .drag-handle,
-.app-container.pinned .drag-bar {
+.app-container.pinned .drag-handle {
   -webkit-app-region: no-drag;
   app-region: no-drag;
   cursor: default;
@@ -378,12 +356,12 @@ body {
 
 .timers-grid {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 11px;
   padding: 15px 10px 10px 10px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  flex: 1;
+  overflow-y: hidden;
+  overflow-x: auto;
+  flex: 0 0 auto;
   align-content: flex-start;
   -webkit-app-region: no-drag;
   app-region: no-drag;
