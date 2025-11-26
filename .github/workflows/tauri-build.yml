@@ -45,6 +45,7 @@ jobs:
             updater-target: linux-x86_64
             artifacts: |
               target/x86_64-unknown-linux-gnu/release/bundle/deb/*.deb
+              target/x86_64-unknown-linux-gnu/release/bundle/rpm/*.rpm
               target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage
               target/x86_64-unknown-linux-gnu/release/bundle/appimage/*.AppImage.sig
 
@@ -158,8 +159,8 @@ jobs:
           TAG="${{ github.event.inputs.version }}"
           VERSION_NUM=$(echo "$TAG" | sed 's/mk//')
 
-          # Copy regular files (exe, msi, dmg, deb, AppImage) and their signatures
-          find artifacts -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.deb" -o -name "*.AppImage" -o -name "*.sig" -o -name "*.tar.gz" \) -exec cp {} release-files/ \;
+          # Copy regular files (exe, msi, dmg, deb, rpm, AppImage) and their signatures
+          find artifacts -type f \( -name "*.exe" -o -name "*.msi" -o -name "*.dmg" -o -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" -o -name "*.sig" -o -name "*.tar.gz" \) -exec cp {} release-files/ \;
 
           # Copy .app bundles (directories) and create tarballs
           find artifacts -type d -name "*.app" | while read app; do
